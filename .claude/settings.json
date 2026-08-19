@@ -1,0 +1,13 @@
+{
+  "enabledPlugins": {
+    "harness@dnnals-plugins": true
+  },
+  "extraKnownMarketplaces": {
+    "dnnals-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "dnnals/dnnals-plugins"
+      }
+    }
+  }
+}
