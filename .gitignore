@@ -1,0 +1,21 @@
+# 러너가 만들었다 지우는 일시적 로컬 상태
+.codex/hooks.json
+
+# 의존성 / 빌드 산출물
+node_modules/
+.next/
+out/
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# step 실행 원시 로그 — index.json/step{N}.md는 커밋, 세션 output만 무시.
+# summary는 러너가 index.json에 복사하므로 기록은 커밋에 남는다.
+phases/**/step*-output.json
+
+# 환경변수
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store

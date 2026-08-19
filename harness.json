@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "project": "{프로젝트명}",
+  "executor": "claude",
+
+  "workflow": {
+    "tdd": "warn",
+    "verify": "enforce"
+  },
+
+  "commands": {
+    ".": {
+      "scaffoldMarker": "package.json",
+      "sourceExt": ["ts", "tsx"],
+      "lint": "npm run lint",
+      "build": "npm run build",
+      "test": "npm run test -- {paths}"
+    }
+  },
+
+  "testPatterns": [],
+  "tddExempt": [],
+  "maxRetries": 3
+}
