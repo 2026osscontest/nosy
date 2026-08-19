@@ -6,7 +6,7 @@
 - P3: Given 절전 해제(resume) 이벤트, When 트리거되면, Then 전체 어댑터가 재실행되고 드리프트가 재평가된다.
 
 ## Requirements
-- FR-001: 스냅샷은 `~/.devenv-pet/snapshots/latest.json`에 저장한다(Electron `userData` 대신 홈 디렉터리 고정 — 사용자가 직접 열람 가능해야 함).
+- FR-001: 스냅샷은 `~/.nosy/snapshots/latest.json`에 저장한다(Electron `userData` 대신 홈 디렉터리 고정 — 사용자가 직접 열람 가능해야 함).
 - FR-002: 스냅샷은 어댑터별 레코드(`{ adapter, ranAt, findings[] }`)로 분리 저장한다.
 - FR-003: 비교는 이번 실행에 실제로 포함된 어댑터 범위 안에서만 Finding `id` 집합을 diff한다. 이번 실행에 포함되지 않은 어댑터의 레코드는 손대지 않고 그대로 유지한다.
 - FR-004: 이전에 없던 `error`가 새로 생기면 드리프트로 판정하고, 펫을 `alarmed` 상태로 전환하며 말풍선을 자동 표시한다.

@@ -8,7 +8,7 @@ pnpm workspace 단일 저장소(모노레포). `harness.json`의 `commands`는 �
 
 ## 디렉토리 구조
 ```
-devenv-pet/                       # pnpm workspace, 단일 저장소
+nosy/                              # pnpm workspace, 단일 저장소
 ├─ packages/core/                 # [배포 타깃 1] 진단 엔진 — npm 라이브러리
 │  ├─ src/host.ts                 #   주입 인터페이스 (테스트 전략의 핵심)
 │  ├─ src/types.ts                #   Finding / Snapshot / HealthScore
@@ -34,7 +34,7 @@ devenv-pet/                       # pnpm workspace, 단일 저장소
 어댑터 실행 (DiagnosticHost 주입)
   → Finding[] 생성 (evidence 또는 fix.command 필수)
   → score.ts가 헬스 스코어 산출 (100점에서 severity별 차감, 어댑터별 최대 -30, 하한 0)
-  → snapshot.ts가 어댑터별로 분리 저장 (~/.devenv-pet/snapshots/latest.json)
+  → snapshot.ts가 어댑터별로 분리 저장 (~/.nosy/snapshots/latest.json)
     → 이전 스냅샷과 "이번 실행 범위 내" id 집합만 diff → 새 error 발생 시 드리프트
   → IPC로 apps/pet(main)에 전달
   → renderer가 상태(idle/thinking/worried/alarmed) 결정 → PetView/Bubble/FixPanel 렌더링

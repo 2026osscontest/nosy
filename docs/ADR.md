@@ -46,7 +46,7 @@
 **트레이드오프**: CLI를 독립 제품으로 키울 수 있는 확장 여지를 v1에서 포기한다.
 
 ### ADR-006: 스냅샷 저장 위치를 홈 디렉터리에 고정
-**결정**: 스냅샷을 Electron의 `app.getPath('userData')` 대신 `~/.devenv-pet/snapshots/latest.json`에 저장한다.
+**결정**: 스냅샷을 Electron의 `app.getPath('userData')` 대신 `~/.nosy/snapshots/latest.json`에 저장한다.
 **이유**: 사용자가 직접 파일을 열어볼 수 있어야 신뢰가 생긴다는 것이 명시적 설계 판단이다.
 **트레이드오프**: OS 표준 앱 데이터 디렉터리 관행에서 벗어난다. 대신 투명성을 얻는다.
 

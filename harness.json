@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "project": "devenv-pet",
+  "project": "nosy",
   "executor": "claude",
 
   "workflow": {
