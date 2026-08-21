@@ -134,4 +134,56 @@ describe('runShellRcAdapter', () => {
     expect(new Set(ids).size).toBe(2)
     expect(findings.every((f) => f.id.length > 0)).toBe(true)
   })
+
+  // 회귀 테스트 — code-review에서 발견된 버그: NodeHost.exec는 execFile로 셸을 거치지 않으므로
+  // $HOME/~ 같은 셸 변수·틸드가 확장되지 않은 채 test/which에 리터럴로 전달되면 안 된다.
+  // 어댑터는 host.exec를 호출하기 전에 자체적으로 $HOME/~를 host.homedir로 치환해야 한다.
+  it('PATH 항목의 $HOME을 확장한 뒤 존재를 확인한다 (리터럴 "$HOME/bin"으로 조회하면 안 됨)', async () => {
+    const host = new FakeHost({
+      homedir,
+      files: { [`${homedir}/.zshrc`]: loadFixture('home-var-path.zshrc') },
+      execResults: {
+        // 버그가 있는 구현은 이 리터럴 키를 조회해 실패로 오판한다.
+        'test -e $HOME/bin': { stdout: '', stderr: '', code: 1 },
+        // 올바른 구현은 $HOME을 homedir로 확장한 뒤 이 키를 조회해야 하며, 존재하는 것으로 등록돼 있다.
+        [`test -e ${homedir}/bin`]: { stdout: '', stderr: '', code: 0 }
+      }
+    })
+
+    const findings = await runShellRcAdapter(host)
+
+    expect(findings).toEqual([])
+  })
+
+  it('$HOME을 확장해도 실제로 없는 PATH 항목은 여전히 감지한다 ($HOME 세그먼트를 통째로 건너뛰는 꼼수 방지)', async () => {
+    const host = new FakeHost({
+      homedir,
+      files: { [`${homedir}/.zshrc`]: loadFixture('home-var-path-missing.zshrc') },
+      execResults: {
+        [`test -e ${homedir}/does-not-exist-xyz`]: { stdout: '', stderr: '', code: 1 }
+      }
+    })
+
+    const findings = await runShellRcAdapter(host)
+
+    expect(findings).toHaveLength(1)
+    expect(findings[0].severity).toBe('warn')
+    expect(findings[0].evidence?.line).toBe(1)
+  })
+
+  it('cd/source 같은 셸 빌트인을 가리키는 alias는 죽은 alias로 오판하지 않는다', async () => {
+    const host = new FakeHost({
+      homedir,
+      files: { [`${homedir}/.zshrc`]: loadFixture('builtin-alias.zshrc') },
+      execResults: {
+        // 버그가 있는 구현은 빌트인도 그냥 which로 조회하며, 실제 which는 빌트인을 못 찾아 실패한다.
+        'which cd': { stdout: '', stderr: '', code: 1 },
+        'which source': { stdout: '', stderr: '', code: 1 }
+      }
+    })
+
+    const findings = await runShellRcAdapter(host)
+
+    expect(findings).toEqual([])
+  })
 })
