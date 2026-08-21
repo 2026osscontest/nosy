@@ -17,7 +17,8 @@
 - FR-008: 앱은 macOS 로그인 항목에 자동 등록되어(`app.setLoginItemSettings`), 사용자가 수동 실행하지 않아도 로그인 시 펫이 뜬다(`docs/ADR.md` ADR-009 참조). 최초 실행 시 온보딩에서 자동 시작 여부와 끄는 방법을 안내한다.
 
 ## Key Entities
-- `PetState`: `'idle' | 'thinking' | 'worried' | 'alarmed'`
+- `PetState`: `'idle' | 'thinking' | 'worried' | 'alarmed'` — 헬스 스코어가 결정하는 표정 축
+- `PetMotion` (제안, `PetState`와 직교하는 별개 prop): `'walking' | 'dragged'` — 마우스 상호작용/자체 이동이 결정하는 몸짓 축. `walking`은 idle 중 자체 이동(무입력 시 "천천히 돌아다님")과 함께, `dragged`는 마우스 다운~드래그 종료 구간에 재생한다. 애셋·연출 정의는 `assets/character/README.md` "모션 레이어" 참조
 - `WindowConfig`: `transparent`, `alwaysOnTop`, `frame: false`
 
 ## Success Criteria
@@ -25,5 +26,5 @@
 - 비-macOS 환경에서 크래시 없이 미지원 메시지가 표시됨을 수동/CI로 확인(10월 기능테스트 대비)
 
 ## Assumptions
-- NEEDS CLARIFICATION: 펫 스프라이트의 구체적 크기·기본 위치·다중 모니터 처리 방식은 아직 결정되지 않음.
+- 펫 스프라이트 원본 해상도는 22×18px로 결정(`assets/character/`). 기본 위치·다중 모니터 처리 방식은 NEEDS CLARIFICATION으로 남아있음.
 - 자유 이동(풍부형: 무입력 시간 감지, 다양한 포즈, 관심 끌기 행동)은 v1 커밋 스코프가 아니다 — 여유 시 추가 후보(`docs/TIMELINE.md` "여유 시 추가 후보" 참조). idle 상태의 기본 "천천히 돌아다님"(`docs/UI_GUIDE.md`)만 커밋 스코프이며, 풍부형 확장은 착수 시점에 별도 스펙을 쓴다.
