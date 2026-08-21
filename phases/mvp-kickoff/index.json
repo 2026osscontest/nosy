@@ -13,10 +13,10 @@
       "tests": [
         "apps/pet/test/character.test.ts"
       ],
-      "status": "blocked",
-      "started_at": "2026-08-21T22:21:20+09:00",
-      "blocked_reason": "합격 기준 테스트 파일 apps/pet/test/character.test.ts 가 워크트리·git 이력 어디에도 존재하지 않는다(packages/core/test/shell-rc.test.ts도 동일). index.json/step0.md는 '이미 작성되어 있다'고 전제하지만 apps/pet/test/, packages/core/test/ 실제 디렉토리에는 host.test.ts 외 해당 파일이 없다. 테스트 파일 생성·수정은 금지 규칙(구현 세션은 테스트를 작성할 수 없음)이라 스스로 만들 수 없다. 이전 시도가 '테스트 잠금 위반'으로 실패한 것도 이 누락을 메우려고 파일을 새로 만들었기 때문으로 보인다. 설계 세션에서 apps/pet/test/character.test.ts, packages/core/test/shell-rc.test.ts를 작성해 커밋한 뒤 재시도가 필요하다.",
-      "blocked_at": "2026-08-21T22:29:44+09:00"
+      "status": "completed",
+      "started_at": "2026-08-21T22:37:29+09:00",
+      "completed_at": "2026-08-21T22:38:40+09:00",
+      "summary": "apps/pet/renderer/character.ts(frames.json 기반 순수 함수: CHARACTER_WIDTH/HEIGHT/FPS, frameCount, frameIndexAt, spriteKey)와 PetView.tsx(import.meta.glob으로 sprites/*.png eager 로드 + 애니메이션 타이머 + image-rendering: pixelated) 구현 완료. vite-env.d.ts에 vite/client 참조 추가. AC 3종(lint/build/test) 모두 통과, character.test.ts 8/8 통과."
     },
     {
       "step": 1,
