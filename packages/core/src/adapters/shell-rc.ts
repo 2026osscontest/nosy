@@ -11,6 +11,27 @@ import type { Finding } from '../types.js'
 
 const RC_FILENAMES = ['.zshrc', '.bashrc', '.zprofile']
 
+// NodeHost.exec는 execFile로 셸을 거치지 않으므로, test/which에 넘기기 전에
+// 선행 $HOME/${HOME}/~ 를 host.homedir로 직접 치환해야 한다.
+function expandHomePrefix(value: string, host: DiagnosticHost): string {
+  if (value === '$HOME' || value.startsWith('$HOME/')) {
+    return host.homedir + value.slice('$HOME'.length)
+  }
+  if (value === '${HOME}' || value.startsWith('${HOME}/')) {
+    return host.homedir + value.slice('${HOME}'.length)
+  }
+  if (value === '~' || value.startsWith('~/')) {
+    return host.homedir + value.slice('~'.length)
+  }
+  return value
+}
+
+// which로 조회하면 실패하는 셸 빌트인 — alias 대상이 이들이면 존재하는 것으로 취급한다.
+const SHELL_BUILTINS = new Set([
+  'cd', 'source', '.', 'pushd', 'popd', 'exit', 'alias', 'unalias',
+  'export', 'unset', 'echo', 'printf', 'type', 'command', 'builtin'
+])
+
 function isCommentLine(line: string): boolean {
   return line.trim().startsWith('#')
 }
@@ -81,7 +102,7 @@ async function scanFile(host: DiagnosticHost, filePath: string, content: string,
         }
         seenPathSegments.add(segment)
 
-        const result = await host.exec('test', ['-e', segment])
+        const result = await host.exec('test', ['-e', expandHomePrefix(segment, host)])
         if (result.code !== 0) {
           findings.push({
             id: `shell-rc:${filePath}:${lineNo}:missing-path:${segment}`,
@@ -120,8 +141,20 @@ async function scanFile(host: DiagnosticHost, filePath: string, content: string,
         }
 
         if (target.length > 0) {
-          const isPath = target.startsWith('/') || target.startsWith('~') || target.startsWith('./') || target.startsWith('../')
-          const result = isPath ? await host.exec('test', ['-e', target]) : await host.exec('which', [target])
+          const isPath =
+            target.startsWith('/') ||
+            target.startsWith('~') ||
+            target.startsWith('./') ||
+            target.startsWith('../') ||
+            target.startsWith('$HOME') ||
+            target.startsWith('${HOME}')
+          const isBuiltin = SHELL_BUILTINS.has(target)
+
+          const result = isBuiltin
+            ? { stdout: '', stderr: '', code: 0 }
+            : isPath
+              ? await host.exec('test', ['-e', expandHomePrefix(target, host)])
+              : await host.exec('which', [target])
 
           if (result.code !== 0) {
             findings.push({
