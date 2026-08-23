@@ -11,5 +11,5 @@
       "@nosy/core": ["../../packages/core/src/index.ts"]
     }
   },
-  "include": ["renderer"]
+  "include": ["renderer", "shared"]
 }
