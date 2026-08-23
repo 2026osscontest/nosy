@@ -89,7 +89,7 @@ async function checkNvmrcVersion(host: DiagnosticHost, findings: Finding[]): Pro
   const content = await host.readFile('.nvmrc')
   if (content === null) return
 
-  const required = content.trim()
+  const required = normalizeVersionTag(content)
   if (!/^\d/.test(required)) return
 
   const result = await host.exec('node', ['-v'])
@@ -200,7 +200,7 @@ async function checkRcInitPlacement(host: DiagnosticHost, findings: Finding[]): 
       cause: 'nvm이 설치되어 있는데 .zshrc/.bashrc/.zprofile 어디에도 초기화 구문이 없어 셸에서 nvm을 사용할 수 없습니다.',
       fix: {
         description: 'rc 파일 끝에 nvm 초기화 구문을 추가하세요.',
-        command: `echo '\\nexport NVM_DIR="$HOME/.nvm"\\n[ -s "$NVM_DIR/nvm.sh" ] && \\\\. "$NVM_DIR/nvm.sh"' >> ${host.homedir}/.zshrc`
+        command: `printf '%s\\n' 'export NVM_DIR="$HOME/.nvm"' '[ -s "$NVM_DIR/nvm.sh" ] && \\. "$NVM_DIR/nvm.sh"' >> ${host.homedir}/.zshrc`
       }
     })
   }
@@ -215,7 +215,7 @@ async function checkRcInitPlacement(host: DiagnosticHost, findings: Finding[]): 
       cause: 'pyenv가 설치되어 있는데 .zshrc/.bashrc/.zprofile 어디에도 초기화 구문이 없어 셸에서 pyenv를 사용할 수 없습니다.',
       fix: {
         description: 'rc 파일 끝에 pyenv 초기화 구문을 추가하세요.',
-        command: `echo '\\neval "$(pyenv init -)"' >> ${host.homedir}/.zshrc`
+        command: `printf '%s\\n' 'eval "$(pyenv init -)"' >> ${host.homedir}/.zshrc`
       }
     })
   }

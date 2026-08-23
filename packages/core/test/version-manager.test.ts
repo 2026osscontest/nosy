@@ -174,6 +174,25 @@ describe('runVersionManagerAdapter', () => {
       expect(findings).toEqual([])
     })
 
+    it('.nvmrc가 "v" 접두사를 포함한 형식("v18.17.0")이어도 별칭으로 오인하지 않고 불일치를 감지한다', async () => {
+      const host = new FakeHost({
+        homedir,
+        files: { '.nvmrc': 'v20.0.0\n' },
+        execResults: {
+          ...notInstalledExecResults(),
+          'node -v': { stdout: 'v18.17.0\n', stderr: '', code: 0 }
+        }
+      })
+
+      const findings = await runVersionManagerAdapter(host)
+
+      expect(findings).toHaveLength(1)
+      const [finding] = findings
+      expect(finding.evidence?.file).toBe('.nvmrc')
+      expect(finding.cause).toContain('20.0.0')
+      expect(finding.cause).toContain('18.17.0')
+    })
+
     it('.nvmrc가 별칭(lts/*)이면 해석할 수 없으므로 검사를 스킵한다', async () => {
       const host = new FakeHost({
         homedir,
@@ -332,6 +351,8 @@ describe('runVersionManagerAdapter', () => {
       const [finding] = findings
       expect(finding.evidence).toBeUndefined()
       expect(finding.fix.command).toBeTruthy()
+      // echo '\n...'는 -e 없이는 개행으로 해석되지 않아 rc 파일이 깨진다 — printf 기반이어야 한다.
+      expect(finding.fix.command).toMatch(/^printf /)
       expect(finding.cause.toLowerCase()).toContain('nvm')
     })
 
@@ -351,6 +372,7 @@ describe('runVersionManagerAdapter', () => {
       const [finding] = findings
       expect(finding.evidence).toBeUndefined()
       expect(finding.fix.command).toBeTruthy()
+      expect(finding.fix.command).toMatch(/^printf /)
       expect(finding.cause.toLowerCase()).toContain('pyenv')
     })
 
