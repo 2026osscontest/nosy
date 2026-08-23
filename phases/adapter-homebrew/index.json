@@ -20,5 +20,6 @@
       "summary": "packages/core/src/adapters/homebrew.ts 신규 — createHomebrewAdapter() 팩토리(name: 'homebrew', kind: 'wrapping'). test/homebrew.test.ts 33건 전부 통과, lint·build 통과. ⚠ 경로 필터 없이 `pnpm run test`를 돌리면 score.test.ts·snapshot.test.ts 46건이 실패하는데, 이는 이 step과 무관한 기존 red다 — src/score.ts·src/snapshot.ts는 스캐폴딩 커밋(183a5bf) 이래 `export {}` TODO 스텁이고, 두 테스트 파일은 각각 src/score.js·src/snapshot.js만 import한다(homebrew.ts를 전혀 참조하지 않음). 해당 구현은 별도 worktree에서 동시 진행 중인 health-score·snapshot-drift step 소관이라 이 step에서 건드리지 않았다. 구현 세부: which brew 실패 시 미설치 사유, brew doctor --json JSON.parse 실패 시 미지원 사유로 skip을 구분(종료 코드는 판정에 쓰지 않음 — brew doctor는 문제를 찾으면 0이 아닌 코드로 끝난다). skipReason의 파싱 결과를 클로저의 1회성 캐시(pending)에 담아 바로 다음 run 한 번만 소비 후 비움 — run 단독 호출도 동작. Finding 매핑: text 첫 줄→title, 전문+affects→cause, remediation.commands[0]→fix.command, remediation.text→fix.description, links[0]→reference(없으면 미설정), evidence 없음, severity는 'warn' 고정(tier 미사용). id는 `homebrew:<첫 줄 slug>`로 결정적. remediation 없음/commands 빈 배열은 버림. 파괴적 명령(cleanup|uninstall|rm|remove|prune, 단어 경계 \\b 매칭)은 fix.manual로만 제공, ^sudo\\b는 needsSudo=true. ADAPTERS 등록·index.ts export는 병합 충돌 방지를 위해 범위 밖으로 두어 미수행."
     }
   ],
-  "created_at": "2026-08-24T03:02:08+09:00"
+  "created_at": "2026-08-24T03:02:08+09:00",
+  "completed_at": "2026-08-24T03:05:07+09:00"
 }
