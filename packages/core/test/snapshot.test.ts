@@ -165,6 +165,33 @@ describe('diffResults', () => {
       expect(drift.newFindings.map((f) => f.id)).toEqual(['rc-1'])
       expect(drift.hasNewError).toBe(true)
     })
+
+    // 기준선 판정은 스냅샷 전체가 아니라 **어댑터별**이다.
+    // 며칠 쓰던 사용자가 Docker를 새로 설치하면 docker 어댑터가 그때 처음 실행되는데,
+    // 그 어댑터의 기존 문제 전부가 "새로 생긴 error"로 잡히면 펫이 헛되이 놀란다.
+    it('다른 어댑터의 기준선이 있어도, 이 어댑터의 레코드가 없으면 기준선 수립으로 본다', () => {
+      const previous: Snapshot = { 'shell-rc': entry([finding('shell-rc', 'rc-1')]) }
+
+      const drift = diffResults(previous, [
+        ran('shell-rc', [finding('shell-rc', 'rc-1')]),
+        ran('docker', [finding('docker', 'd-1', 'error'), finding('docker', 'd-2', 'error')])
+      ])
+
+      expect(drift.newFindings).toEqual([])
+      expect(drift.hasNewError).toBe(false)
+    })
+
+    it('기준선이 있는 어댑터의 신규만 잡고, 기준선이 없는 어댑터는 건너뛴다', () => {
+      const previous: Snapshot = { 'shell-rc': entry([finding('shell-rc', 'rc-1')]) }
+
+      const drift = diffResults(previous, [
+        ran('shell-rc', [finding('shell-rc', 'rc-1'), finding('shell-rc', 'rc-2', 'error')]),
+        ran('docker', [finding('docker', 'd-1', 'error')])
+      ])
+
+      expect(drift.newFindings.map((f) => f.id)).toEqual(['rc-2'])
+      expect(drift.hasNewError).toBe(true)
+    })
   })
 })
 

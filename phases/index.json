@@ -1,0 +1,33 @@
+{
+  "project": "nosy",
+  "phases": [
+    {
+      "dir": "mvp-kickoff",
+      "status": "pending"
+    },
+    {
+      "dir": "adapter-version-manager",
+      "status": "pending"
+    },
+    {
+      "dir": "health-score",
+      "status": "pending"
+    },
+    {
+      "dir": "snapshot-drift",
+      "status": "pending"
+    },
+    {
+      "dir": "adapter-homebrew",
+      "status": "pending"
+    },
+    {
+      "dir": "fix-drift-baseline",
+      "status": "pending"
+    },
+    {
+      "dir": "ipc-contract",
+      "status": "pending"
+    }
+  ]
+}
