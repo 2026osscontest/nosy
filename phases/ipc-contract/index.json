@@ -13,7 +13,10 @@
       "tests": [
         "apps/pet/test/ipc-contract.test.ts"
       ],
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-08-24T03:24:37+09:00",
+      "completed_at": "2026-08-24T03:26:43+09:00",
+      "summary": "apps/pet/shared/ipc.ts 신규 — CHANNEL 5종('nosy:' 접두사), DiagnosticScope, PetSnapshot/FixResult 타입, petStateFor(drift.hasNewError||error→alarmed > warn→worried > idle, thinking 미반환), buildSnapshot(computeHealthScore로 점수 산출·skip된 어댑터도 results에 유지), thinkingSnapshot(previous 스프레드로 표정만 교체·무변경, previous 없으면 100점·빈 results·drift 없음·ranAt ''). electron 미import(순수 모듈). tsconfig.node.json/tsconfig.web.json의 include에 \"shared\" 추가. 검증: apps/pet lint 통과, build 통과, test/ipc-contract.test.ts 22건 + character.test.ts 8건 통과. 참고: test/ipc-wiring.test.ts 17건은 아직 실패 — main/ipc.ts(registerIpcHandlers)가 없어서이며 step 1 몫이다. 필요한 core 심볼(ADAPTERS, selfAdapters, SnapshotStore, FakeHost)은 이미 @nosy/core에 존재한다. 별건 선재 이슈: tsconfig.web.json의 paths가 @nosy/core를 core 소스로 매핑해 tsc -b 시 TS6307/TS2591 21건이 나지만 내 변경 전후 동일하며 AC 명령(lint/build/test)에는 영향 없다."
     },
     {
       "step": 1,
@@ -28,5 +31,6 @@
       ],
       "status": "pending"
     }
-  ]
+  ],
+  "created_at": "2026-08-24T03:24:37+09:00"
 }
