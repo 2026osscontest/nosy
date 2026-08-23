@@ -1,0 +1,22 @@
+{
+  "tier": 1,
+  "findings": [
+    {
+      "text": "TMPDIR \"/nonexistent\" doesn't exist.\n",
+      "tier": 1,
+      "affects": [],
+      "links": [],
+      "remediation": null
+    },
+    {
+      "text": "Unbrewed header files were found in /usr/local/include.\n",
+      "tier": 1,
+      "affects": [],
+      "links": [],
+      "remediation": {
+        "text": "These may interfere with building.\n",
+        "commands": []
+      }
+    }
+  ]
+}

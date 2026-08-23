@@ -1,0 +1,52 @@
+{
+  "tier": 1,
+  "findings": [
+    {
+      "text": "Some installed formulae or casks are missing dependencies.\nRun `brew missing` for more details.\n",
+      "tier": 1,
+      "affects": ["openssl@3"],
+      "links": [],
+      "remediation": {
+        "text": "You should `brew install` the missing dependencies:\n  brew install openssl@3\n",
+        "commands": ["brew install openssl@3"]
+      }
+    },
+    {
+      "text": "Broken symlinks were found:\n  /opt/homebrew/bin/node\n",
+      "tier": 1,
+      "affects": [],
+      "links": [],
+      "remediation": {
+        "text": "Remove them with `brew cleanup`\n",
+        "commands": ["brew cleanup"]
+      }
+    },
+    {
+      "text": "You have multiple Cellars.\n",
+      "tier": 1,
+      "affects": [],
+      "links": [],
+      "remediation": {
+        "text": "You should delete /opt/homebrew/Cellar:\n  rm -rf /opt/homebrew/Cellar\n",
+        "commands": ["rm -rf /opt/homebrew/Cellar"]
+      }
+    },
+    {
+      "text": "The following directories are not writable by your user:\n/opt/homebrew/share\n",
+      "tier": 1,
+      "affects": [],
+      "links": [],
+      "remediation": {
+        "text": "You should change the ownership of these directories to your user.\n  sudo chown -R dnnals /opt/homebrew/share\n",
+        "commands": ["sudo chown -R dnnals /opt/homebrew/share", "chmod u+w /opt/homebrew/share"]
+      }
+    },
+    {
+      "text": "TMPDIR \"/nonexistent\" doesn't exist.\n",
+      "tier": 1,
+      "affects": [],
+      "links": [],
+      "remediation": null
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "tier": 1,
+  "findings": [
+    {
+      "text": "You have unlinked kegs in your Cellar.\nLeaving kegs unlinked can lead to build-trouble and cause formulae that depend on\nthose kegs to fail to run properly once built.\n",
+      "tier": 1,
+      "affects": ["node", "python@3.12"],
+      "links": ["https://docs.brew.sh/FAQ"],
+      "remediation": {
+        "text": "Run `brew link` on these:\n  node\n  python@3.12\n",
+        "commands": ["brew link node", "brew link python@3.12"]
+      }
+    }
+  ]
+}
