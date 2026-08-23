@@ -14,14 +14,14 @@
       "sourceExt": ["ts"],
       "lint": "pnpm run lint",
       "build": "pnpm run build",
-      "test": "pnpm run test -- {paths}"
+      "test": "pnpm run test {paths}"
     },
     "apps/pet": {
       "scaffoldMarker": "package.json",
       "sourceExt": ["ts", "tsx"],
       "lint": "pnpm run lint",
       "build": "pnpm run build",
-      "test": "pnpm run test -- {paths}"
+      "test": "pnpm run test {paths}"
     }
   },
 
