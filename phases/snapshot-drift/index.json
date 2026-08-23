@@ -20,5 +20,6 @@
       "summary": "packages/core/src/snapshot.ts 구현 — SnapshotStore 인터페이스, NodeSnapshotStore(~/.nosy/snapshots/latest.json 고정, 2-space JSON, 없거나 깨진 파일은 {}로 복구), 순수 함수 diffResults(실행 범위 한정 diff: skip 제외, id는 어댑터 레코드 내에서만 비교)·mergeResults(skipped=false 어댑터만 {ranAt, findings}로 갱신, 미실행/skip 레코드는 보존, previous 불변). 주의: 기준선 수립 규칙이 step 지시문과 잠긴 테스트가 서로 달라 테스트를 따랐다 — 지시문은 '어댑터 레코드가 없으면 신규로 잡지 않는다'이지만 test/snapshot.test.ts:85 'id 비교는 어댑터 레코드 안에서만 한다'는 previous={'shell-rc':...}에 git 결과를 넣고 git Finding을 신규로 기대한다. 두 케이스를 모두 만족하는 유일한 규칙인 '스냅샷 전체가 비어 있을 때(Object.keys(previous).length===0)만 기준선 수립으로 보고, 그 외에는 레코드 없는 어댑터를 빈 기준선으로 diff'로 구현했다. 결과적으로 어댑터가 새로 적용 가능해진 경우(예: Homebrew 최초 설치) 그 어댑터의 기존 문제가 드리프트로 잡힌다 — 설계 세션의 확인이 필요하다. snapshot.test.ts 25건 전부 통과, lint/build 통과, 기존 4개 테스트 파일 48건 유지. index.ts wiring은 범위 밖이라 하지 않았다(score.test.ts·homebrew.test.ts 실패는 동시 진행 중인 다른 step 범위)."
     }
   ],
-  "created_at": "2026-08-24T03:02:06+09:00"
+  "created_at": "2026-08-24T03:02:06+09:00",
+  "completed_at": "2026-08-24T03:05:06+09:00"
 }
