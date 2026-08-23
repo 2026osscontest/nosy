@@ -20,5 +20,6 @@
       "summary": "packages/core/src/score.ts에 순수 함수 computeHealthScore(results: AdapterResult[]): HealthScore 구현 — 100점 시작, 배점표를 모듈 상단 상수(MAX_SCORE=100, MIN_SCORE=0, DEDUCTION_BY_SEVERITY={ok:0,warn:5,error:15}, MAX_DEDUCTION_PER_ADAPTER=30, GRADE_NORMAL_MIN=90, GRADE_CAUTION_MIN=70)로 고정. 어댑터별 감점을 독립 캡핑 후 합산해 하한 0으로 클램프하고, skipped 어댑터는 deductions에서 제외, 실행된 어댑터는 감점 0이어도 {adapter, deduction} 양수 표기로 입력 순서 그대로 포함. 등급은 90+/70+/그 미만으로 정상·주의·문제 있음. 새 파일 없음, index.ts wiring 미포함(별도 브랜치와의 충돌 회피 — 추후 일괄 처리 필요). AC: lint/build 통과, score.test.ts 21건 포함 core 전체 127건 통과."
     }
   ],
-  "created_at": "2026-08-24T03:02:04+09:00"
+  "created_at": "2026-08-24T03:02:04+09:00",
+  "completed_at": "2026-08-24T03:09:29+09:00"
 }
