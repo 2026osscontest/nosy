@@ -1,5 +1,8 @@
 export * from './types.js'
 export * from './host.js'
 export * from './run.js'
+export * from './score.js'
+export * from './snapshot.js'
 export { runShellRcAdapter } from './adapters/shell-rc.js'
 export { runVersionManagerAdapter } from './adapters/version-manager.js'
+export { createHomebrewAdapter } from './adapters/homebrew.js'

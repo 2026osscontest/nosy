@@ -5,11 +5,13 @@ import type { DiagnosticHost } from './host.js'
 import type { Adapter, AdapterResult } from './types.js'
 import { runShellRcAdapter } from './adapters/shell-rc.js'
 import { runVersionManagerAdapter } from './adapters/version-manager.js'
+import { createHomebrewAdapter } from './adapters/homebrew.js'
 
 /** v1 어댑터 목록. 실행 순서는 이 배열 순서를 따른다. */
 export const ADAPTERS: Adapter[] = [
   { name: 'shell-rc', kind: 'self', run: runShellRcAdapter },
-  { name: 'version-manager', kind: 'self', run: runVersionManagerAdapter }
+  { name: 'version-manager', kind: 'self', run: runVersionManagerAdapter },
+  createHomebrewAdapter()
 ]
 
 /** 30분 주기 체크 대상 (drift-detection-spec FR-006). */
