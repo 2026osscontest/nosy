@@ -1,0 +1,41 @@
+{
+  "project": "nosy",
+  "phase": "mvp-kickoff",
+  "steps": [
+    {
+      "step": 0,
+      "name": "character-sprite-view",
+      "ac": [
+        "lint",
+        "build",
+        "test"
+      ],
+      "tests": [
+        "apps/pet/test/character.test.ts"
+      ],
+      "status": "completed",
+      "started_at": "2026-08-21T22:37:29+09:00",
+      "completed_at": "2026-08-21T22:38:40+09:00",
+      "summary": "apps/pet/renderer/character.ts(frames.json 기반 순수 함수: CHARACTER_WIDTH/HEIGHT/FPS, frameCount, frameIndexAt, spriteKey)와 PetView.tsx(import.meta.glob으로 sprites/*.png eager 로드 + 애니메이션 타이머 + image-rendering: pixelated) 구현 완료. vite-env.d.ts에 vite/client 참조 추가. AC 3종(lint/build/test) 모두 통과, character.test.ts 8/8 통과."
+    },
+    {
+      "step": 1,
+      "name": "adapter-shell-rc",
+      "ac": [
+        "lint",
+        "build",
+        "test"
+      ],
+      "tests": [
+        "apps/pet/test/character.test.ts",
+        "packages/core/test/shell-rc.test.ts"
+      ],
+      "status": "completed",
+      "started_at": "2026-08-21T22:38:40+09:00",
+      "completed_at": "2026-08-21T22:41:47+09:00",
+      "summary": "packages/core/src/adapters/shell-rc.ts(호스트 주입 전용, 중복/죽은 PATH·죽은 alias·존재하지 않는 source·중복 alias·nvm+asdf/pyenv+asdf 충돌 6종 감지, fix.command 미기입)와 THIRD-PARTY-NOTICES.md(shellrc-doctor MIT 고지)는 이미 구현되어 있었으며, packages/core/test/shell-rc.test.ts 8/8 및 apps/pet/test/character.test.ts 8/8 포함 전체 12개 테스트, lint, build 모두 통과 확인만 수행함."
+    }
+  ],
+  "created_at": "2026-08-21T22:21:20+09:00",
+  "completed_at": "2026-08-21T22:41:47+09:00"
+}
