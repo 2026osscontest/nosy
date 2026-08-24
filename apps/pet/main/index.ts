@@ -1,9 +1,12 @@
 import { BrowserWindow, app } from 'electron'
+import { NodeHost, NodeSnapshotStore } from '@nosy/core'
 import { createWindow } from './window'
+import { registerIpcHandlers } from './ipc'
 import { startScheduler } from './scheduler'
 
 app.whenReady().then(() => {
   const window = createWindow()
+  registerIpcHandlers(window, { host: new NodeHost(), store: new NodeSnapshotStore() })
   startScheduler(window)
 
   app.on('activate', () => {

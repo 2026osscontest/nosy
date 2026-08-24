@@ -1,4 +1,32 @@
-// IPC 브릿지. 채널이 확정되는 대로 contextBridge에 노출한다 (D6).
-import { contextBridge } from 'electron'
+// IPC 브릿지. renderer가 볼 수 있는 창구는 window.nosy 하나뿐이다.
+// ipcRenderer나 원시 invoke/send는 노출하지 않는다 — 노출하면 renderer가 임의 채널을 부를 수 있어
+// contextIsolation의 의미가 사라진다.
 
-contextBridge.exposeInMainWorld('nosy', {})
+import { contextBridge, ipcRenderer } from 'electron'
+import type { IpcRendererEvent } from 'electron'
+import { CHANNEL } from '../shared/ipc'
+import type { DiagnosticScope, FixResult, PetSnapshot } from '../shared/ipc'
+
+contextBridge.exposeInMainWorld('nosy', {
+  /** IPC 왕복 없이 상수로 준다 (pet-window-spec FR-005). */
+  platform: process.platform,
+
+  run: (scope: DiagnosticScope): void => ipcRenderer.send(CHANNEL.run, scope),
+
+  setClickThrough: (ignore: boolean): void => ipcRenderer.send(CHANNEL.setClickThrough, ignore),
+
+  applyFix: (findingId: string): Promise<FixResult> =>
+    ipcRenderer.invoke(CHANNEL.applyFix, findingId),
+
+  revertFix: (findingId: string): Promise<FixResult> =>
+    ipcRenderer.invoke(CHANNEL.revertFix, findingId),
+
+  /** 구독 해제 함수를 반환한다 — React useEffect의 정리 함수로 그대로 쓴다. */
+  onState: (handler: (snapshot: PetSnapshot) => void): (() => void) => {
+    // IpcRendererEvent를 벗기고 payload만 넘긴다. 이벤트 객체가 React 상태로 새면 안 된다.
+    const listener = (_event: IpcRendererEvent, snapshot: PetSnapshot): void => handler(snapshot)
+
+    ipcRenderer.on(CHANNEL.state, listener)
+    return () => ipcRenderer.removeListener(CHANNEL.state, listener)
+  }
+})
