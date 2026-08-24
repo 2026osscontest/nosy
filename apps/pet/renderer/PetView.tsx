@@ -18,7 +18,9 @@ for (const [path, url] of Object.entries(spriteModules)) {
   spriteUrls[stem] = url
 }
 
-const SCALE = 8
+// 반드시 정수여야 한다 — 픽셀아트를 비정수배로 키우면 뭉개진다.
+// 22×18 원본이 4배면 88×72로, 말풍선(232px 폭)과 나란히 두기 좋은 크기다.
+const SCALE = 4
 
 interface PetViewProps {
   state: PetState

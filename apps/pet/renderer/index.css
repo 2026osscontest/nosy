@@ -1,3 +1,28 @@
+/* Galmuri — SIL Open Font License 1.1
+   Copyright (c) 2019–2025 Lee Minseo (quiple@quiple.dev)
+   https://github.com/quiple/galmuri — 전문은 fonts/Galmuri-LICENSE.txt와
+   리포 루트 THIRD-PARTY-NOTICES.md 참조. */
+@font-face {
+  font-family: 'Galmuri11';
+  src: url('./fonts/Galmuri11.woff2') format('woff2');
+  font-weight: 400;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Galmuri11';
+  src: url('./fonts/Galmuri11-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'GalmuriMono11';
+  src: url('./fonts/GalmuriMono11.woff2') format('woff2');
+  font-weight: 400;
+  font-display: block;
+}
+
 /* 색은 캐릭터 애셋에 이미 확정된 팔레트를 그대로 쓴다 (assets/character/README.md).
    docs/UI_GUIDE.md의 색상 절은 아직 "미정"이라 새 팔레트를 임의로 만들지 않았다.
    같은 문서의 안티패턴(글로우·그라데이션·blur·보라)은 하나도 쓰지 않는다. */
@@ -7,6 +32,16 @@
   --ink: #3a2a1e;
   --coral: #e8795a;
   --alarm: #d64545;
+
+  /* Galmuri11은 11px 격자에 맞춰 그린 비트맵 폰트다. 11px과 그 정수배에서만
+     픽셀이 딱 떨어지므로 모든 치수를 --k(배율)에 곱해 정수로 유지한다.
+     --k를 2로 올리면 말풍선 전체가 2배가 된다 — 그때는 창도 키워야 한다. */
+  --k: 1;
+  --t: calc(11px * var(--k));
+  --lh: calc(16px * var(--k));
+  --u: calc(4px * var(--k));
+  --b: calc(2px * var(--k));
+  --pad: calc(11px * var(--k));
 }
 
 /* 투명 창(pet-window-spec FR-001). 배경을 명시적으로 비우지 않으면
@@ -17,7 +52,6 @@ body {
   height: 100%;
   background: transparent;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
   color: var(--ink);
   /* 펫을 끌 때 브라우저 기본 이미지 드래그가 뜨는 걸 막는다. */
   user-select: none;
@@ -48,6 +82,10 @@ body {
   cursor: grab;
 }
 
+.pet-anchor[data-dragging='true'] {
+  cursor: grabbing;
+}
+
 /* -webkit-user-drag는 상속되지 않는다. body에만 걸면 <img>가 여전히 네이티브
    드래그앤드롭의 소스가 되어, 복사 커서와 고스트 이미지가 뜨고 포인터 이벤트가
    끊긴다 — 그러면 창을 옮기는 우리 핸들러가 아예 돌지 못한다. */
@@ -56,70 +94,108 @@ body {
   user-select: none;
 }
 
-.pet-anchor[data-dragging='true'] {
-  cursor: grabbing;
+/* ── 말풍선 ────────────────────────────────────────────────
+   계단형 모서리는 clip-path로 만든다. 축에 정렬된 계단이라야 도트로 읽힌다 —
+   45° 대각선은 안티에일리어싱이 생겨 뭉갠다. 모양은 --shape 변수에 담아
+   그림자 레이어와 테두리 레이어가 같은 값을 쓰게 한다.
+
+   .bubble 자신에게는 clip-path를 걸지 않는다 — 걸면 바깥으로 밀어낸
+   하드 섀도까지 잘라낸다. */
+.bubble {
+  --shape: polygon(
+    var(--u) 0%, calc(100% - var(--u)) 0%,
+    calc(100% - var(--u)) var(--u), 100% var(--u),
+    100% calc(100% - var(--u)), calc(100% - var(--u)) calc(100% - var(--u)),
+    calc(100% - var(--u)) 100%, var(--u) 100%,
+    var(--u) calc(100% - var(--u)), 0% calc(100% - var(--u)),
+    0% var(--u), var(--u) var(--u)
+  );
+  position: relative;
+  width: calc(232px * var(--k));
+  font-family: 'Galmuri11', monospace;
+  /* 비트맵 폰트라 안티에일리어싱을 끄지 않으면 가장자리가 흐려진다. */
+  -webkit-font-smoothing: none;
+  letter-spacing: 0;
 }
 
-.bubble {
-  min-width: 190px;
-  max-width: 320px;
-  padding: 10px 13px;
+.bubble::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  transform: translate(var(--u), var(--u));
+  background: var(--ink);
+  clip-path: var(--shape);
+}
+
+.bubble-frame,
+.bubble-face {
+  clip-path: var(--shape);
+}
+
+.bubble-frame {
+  position: relative;
+  z-index: 1;
+  background: var(--ink);
+  padding: var(--b);
+}
+
+.bubble-face {
   background: var(--cream);
-  border: 2px solid var(--ink);
-  border-radius: 7px;
-  box-shadow: 2px 2px 0 var(--ink);
+  padding: var(--pad);
 }
 
 .bubble-score {
   display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding-bottom: 7px;
-  margin-bottom: 7px;
-  border-bottom: 1px solid var(--cream-shade);
+  align-items: center;
+  gap: calc(6px * var(--k));
 }
 
 .bubble-score-value {
-  font-size: 24px;
   font-weight: 700;
+  font-size: calc(var(--t) * 2);
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .bubble-score-grade {
-  font-size: 12px;
-  color: var(--coral);
-  font-weight: 600;
+  font-weight: 700;
+  font-size: var(--t);
+  line-height: 1;
 }
 
-.bubble-body {
-  margin: 0;
+.bubble-score-grade[data-grade='정상'] { color: var(--ink); opacity: 0.6; }
+.bubble-score-grade[data-grade='주의'] { color: var(--coral); }
+.bubble-score-grade[data-grade='문제 있음'] { color: var(--alarm); }
+
+/* 점수를 10칸 게이지로도 보여준다. fix를 적용하면 칸이 차오른다.
+   마지막 채워진 칸만 빨강인 경우는 error가 점수를 깎고 있다는 뜻이다. */
+.bubble-bar {
+  display: flex;
+  gap: calc(2px * var(--k));
+  margin: calc(8px * var(--k)) 0 calc(10px * var(--k));
 }
+
+.bubble-bar i {
+  flex: 1;
+  height: calc(8px * var(--k));
+  background: var(--cream-shade);
+}
+
+.bubble-bar i[data-fill='on'] { background: var(--coral); }
+.bubble-bar i[data-fill='hot'] { background: var(--alarm); }
 
 .bubble-title {
   margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-/* 심각도는 왼쪽 굵은 선 하나로만 구분한다 — 배지나 글로우를 얹지 않는다. */
-.bubble-title[data-severity='error'] {
-  border-left: 3px solid var(--alarm);
-  padding-left: 7px;
-}
-
-.bubble-title[data-severity='warn'] {
-  border-left: 3px solid var(--coral);
-  padding-left: 7px;
+  font-weight: 700;
+  font-size: var(--t);
+  line-height: var(--lh);
 }
 
 .bubble-evidence {
-  margin: 5px 0 0 10px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
-  opacity: 0.75;
-}
-
-.bubble-clear {
-  font-size: 13px;
+  margin: calc(5px * var(--k)) 0 0;
+  font-family: 'GalmuriMono11', monospace;
+  font-size: var(--t);
+  line-height: var(--lh);
+  opacity: 0.7;
 }

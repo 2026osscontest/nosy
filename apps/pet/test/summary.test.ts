@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest'
 import type { AdapterResult, Finding, Severity } from '@nosy/core'
-import { mostSevereFinding } from '../renderer/summary'
+import { mostSevereFinding, scoreBar } from '../renderer/summary'
 
 function finding(id: string, severity: Severity): Finding {
   return {
@@ -53,5 +53,37 @@ describe('mostSevereFinding', () => {
 
   it('severity가 ok인 finding은 고르지 않는다', () => {
     expect(mostSevereFinding([result('a', [finding('o1', 'ok')])])).toBeUndefined()
+  })
+})
+
+describe('scoreBar', () => {
+  it('점수를 10점 단위 칸으로 채운다', () => {
+    expect(scoreBar(70, false).filter((s) => s !== 'off')).toHaveLength(7)
+    expect(scoreBar(100, false).every((s) => s === 'on')).toBe(true)
+  })
+
+  it('0점이면 한 칸도 켜지 않는다', () => {
+    expect(scoreBar(0, false).every((s) => s === 'off')).toBe(true)
+  })
+
+  // 1점 남은 상태와 진짜 0점이 똑같이 보이면 안 된다.
+  it('1점이라도 남아 있으면 한 칸은 켠다', () => {
+    expect(scoreBar(1, false).filter((s) => s !== 'off')).toHaveLength(1)
+  })
+
+  it('error가 있으면 마지막으로 채워진 칸만 빨강이다', () => {
+    const segments = scoreBar(70, true)
+
+    expect(segments[6]).toBe('hot')
+    expect(segments.filter((s) => s === 'hot')).toHaveLength(1)
+    expect(segments.slice(0, 6).every((s) => s === 'on')).toBe(true)
+  })
+
+  it('error가 없으면 빨간 칸이 없다', () => {
+    expect(scoreBar(70, false).includes('hot')).toBe(false)
+  })
+
+  it('0점이면 error가 있어도 빨간 칸이 생기지 않는다', () => {
+    expect(scoreBar(0, true).includes('hot')).toBe(false)
   })
 })

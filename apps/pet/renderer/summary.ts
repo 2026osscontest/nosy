@@ -18,3 +18,23 @@ export function mostSevereFinding(results: AdapterResult[]): Finding | undefined
     findings.find((finding) => finding.severity === 'warn')
   )
 }
+
+/** 스코어 게이지 한 칸의 상태. `hot`은 error가 점수를 깎고 있다는 뜻이다. */
+export type BarSegment = 'off' | 'on' | 'hot'
+
+const BAR_SEGMENTS = 10
+
+/**
+ * 헬스 스코어를 10칸 게이지로 바꾼다 (docs/UI_GUIDE.md "말풍선" 요약).
+ * 채워지는 칸 수는 10점 단위로 올림한다 — 1점이라도 남아 있으면 한 칸은 켜져서,
+ * 게이지가 완전히 비어 보이는 상태와 진짜 0점을 구분할 수 있다.
+ * `hasError`면 마지막으로 채워진 칸만 빨강으로 바꿔 무엇이 점수를 깎았는지 알린다.
+ */
+export function scoreBar(score: number, hasError: boolean): BarSegment[] {
+  const filled = Math.min(BAR_SEGMENTS, Math.ceil(score / BAR_SEGMENTS))
+
+  return Array.from({ length: BAR_SEGMENTS }, (_, index) => {
+    if (index >= filled) return 'off'
+    return hasError && index === filled - 1 ? 'hot' : 'on'
+  })
+}
