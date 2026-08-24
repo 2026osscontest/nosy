@@ -29,4 +29,12 @@
 - 정본은 `docs/`다(PRD·ARCHITECTURE·ADR·UI_GUIDE·SUBMISSION·TIMELINE·specs). `spec.md`는 더 이상 없다
 
 ## 알려진 함정
-- (아직 없음 — 실제로 겪은 뒤에만 추가하고, 더 안 맞으면 지운다. 미리 채우지 않는다)
+전부 2026-08-24 병렬 구현에서 실제로 겪은 것들이다.
+
+- **러너는 변경 파일이 0건이면 AC를 하나도 실행하지 않고 합격 판정을 낸다.** 구현자 세션이 불발되면(실제로 2초 만에 종료된 적 있음) 산출물 없이 `completed`가 된다. 러너가 "✓"를 낸 뒤에는 **산출물 파일이 실제로 생겼는지 눈으로 확인할 것.**
+- **`phases/index.json`(전체 현황 파일)이 없으면 verify-gate 훅이 전체 테스트 스위트를 돌린다.** 그러면 아직 구현 안 된 다른 step의 red에 구현자가 항상 막혀 blocked를 신고한다. 새 phase를 추가하면 이 파일의 `phases` 배열에도 넣어야 한다. 배열 순서상 **앞에 있는 미완료 phase에서 누적 tests 계산이 멈춘다.**
+- **pnpm 11에서 `pnpm run test -- {paths}`의 `--`는 인자를 vitest에 전달하지 않는다.** 경로 필터가 통째로 무시되고 전체 스위트가 돈다. `harness.json`은 `--` 없는 형태(`pnpm run test {paths}`)로 고쳐뒀다.
+- **worktree 병렬 실행 시 `packages/core/src/index.ts`와 `run.ts`를 각 step에서 잠글 것.** 여러 브랜치가 export/등록을 한 줄씩 추가하면 병합에서 충돌한다. wiring은 병합 후 설계 세션이 한 번에 한다.
+- **worktree마다 `pnpm install`이 필요하고, `apps/pet` 테스트를 돌리려면 그 worktree에서 `packages/core`를 빌드해야 한다** — workspace link가 `dist/`를 가리키는데 git checkout에는 없다.
+- **`electron-vite`가 만드는 `*.tsbuildinfo`는 이름이 여러 가지다**(`tsconfig.node.tsbuildinfo` 등). gitignore 패턴을 `*.tsbuildinfo`로 둘 것.
+- **테스트를 추가할 때 같은 describe의 기존 케이스와 모순되지 않는지 확인할 것.** 드리프트 기준선 규칙을 추가했다가 기존 id 스코핑 테스트와 정면으로 충돌해 구현자가 blocked를 냈다. 구현자의 신고가 옳았다.
