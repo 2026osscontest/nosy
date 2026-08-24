@@ -37,4 +37,5 @@
 - **worktree 병렬 실행 시 `packages/core/src/index.ts`와 `run.ts`를 각 step에서 잠글 것.** 여러 브랜치가 export/등록을 한 줄씩 추가하면 병합에서 충돌한다. wiring은 병합 후 설계 세션이 한 번에 한다.
 - **worktree마다 `pnpm install`이 필요하고, `apps/pet` 테스트를 돌리려면 그 worktree에서 `packages/core`를 빌드해야 한다** — workspace link가 `dist/`를 가리키는데 git checkout에는 없다.
 - **`electron-vite`가 만드는 `*.tsbuildinfo`는 이름이 여러 가지다**(`tsconfig.node.tsbuildinfo` 등). gitignore 패턴을 `*.tsbuildinfo`로 둘 것.
+- **`electron-vite`는 preload를 ESM(`.mjs`)으로 빌드하는데, Electron은 ESM preload에 `sandbox: false`를 요구한다.** 안 끄면 preload 로드가 **에러 한 줄 없이** 실패하고 renderer에서 `window.nosy`만 undefined가 된다. `contextIsolation`은 켜 둔 채로 샌드박스만 끈다.
 - **테스트를 추가할 때 같은 describe의 기존 케이스와 모순되지 않는지 확인할 것.** 드리프트 기준선 규칙을 추가했다가 기존 id 스코핑 테스트와 정면으로 충돌해 구현자가 blocked를 냈다. 구현자의 신고가 옳았다.
