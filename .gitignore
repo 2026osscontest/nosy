@@ -7,7 +7,7 @@ node_modules/
 out/
 dist/
 next-env.d.ts
-tsconfig.tsbuildinfo
+*.tsbuildinfo
 
 # step 실행 원시 로그 — index.json/step{N}.md는 커밋, 세션 output만 무시.
 # summary는 러너가 index.json에 복사하므로 기록은 커밋에 남는다.

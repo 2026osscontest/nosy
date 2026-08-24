@@ -29,12 +29,8 @@
       "tests": [
         "apps/pet/test/ipc-wiring.test.ts"
       ],
-      "status": "completed",
-      "started_at": "2026-08-24T03:26:44+09:00",
-      "completed_at": "2026-08-24T03:26:46+09:00",
-      "summary": ""
+      "status": "pending"
     }
   ],
-  "created_at": "2026-08-24T03:24:37+09:00",
-  "completed_at": "2026-08-24T03:26:46+09:00"
+  "created_at": "2026-08-24T03:24:37+09:00"
 }

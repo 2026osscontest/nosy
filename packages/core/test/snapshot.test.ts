@@ -83,7 +83,12 @@ describe('diffResults', () => {
     })
 
     it('id 비교는 어댑터 레코드 안에서만 한다 (다른 어댑터의 같은 id는 새 것이다)', () => {
-      const previous: Snapshot = { 'shell-rc': entry([finding('shell-rc', 'dup')]) }
+      // git에도 기준선(검사했고 깨끗했음)을 준다 — 기준선이 없으면 아래 "기준선 수립" 규칙에
+      // 걸려 diff 자체를 건너뛰므로, 이 테스트가 보려는 id 스코핑을 검증할 수 없다.
+      const previous: Snapshot = {
+        'shell-rc': entry([finding('shell-rc', 'dup')]),
+        git: entry([])
+      }
       const drift = diffResults(previous, [ran('git', [finding('git', 'dup')])])
 
       expect(drift.newFindings.map((f) => f.adapter)).toEqual(['git'])
