@@ -134,7 +134,10 @@ async function scanFile(host: DiagnosticHost, filePath: string, content: string,
             title: '중복 정의된 alias가 있습니다',
             cause: `alias "${name}"이(가) 이미 정의된 이름으로 다시 정의되었습니다.`,
             evidence: { file: filePath, line: lineNo, excerpt },
-            fix: { description: '중복 정의된 alias 중 하나를 제거하세요.' }
+            fix: {
+              description: '중복 정의된 alias 중 하나를 제거하세요.',
+              edit: { file: filePath, removeLine: lineNo, expectedLine: excerpt }
+            }
           })
         } else {
           seenAliasNames.add(name)
@@ -164,7 +167,10 @@ async function scanFile(host: DiagnosticHost, filePath: string, content: string,
               title: '대상이 존재하지 않는 alias가 있습니다',
               cause: `alias "${name}"이(가) 가리키는 "${target}"을(를) 찾을 수 없습니다.`,
               evidence: { file: filePath, line: lineNo, excerpt },
-              fix: { description: '대상이 사라진 alias를 제거하거나 올바른 대상으로 수정하세요.' }
+              fix: {
+                description: '대상이 사라진 alias를 제거하거나 올바른 대상으로 수정하세요.',
+                edit: { file: filePath, removeLine: lineNo, expectedLine: excerpt }
+              }
             })
           }
         }
@@ -184,7 +190,10 @@ async function scanFile(host: DiagnosticHost, filePath: string, content: string,
           title: '존재하지 않는 파일을 source하고 있습니다',
           cause: `"${sourcePath}" 파일이 존재하지 않아 셸 시작 시 오류가 발생할 수 있습니다.`,
           evidence: { file: filePath, line: lineNo, excerpt },
-          fix: { description: '더 이상 존재하지 않는 파일에 대한 source 구문을 제거하세요.' }
+          fix: {
+            description: '더 이상 존재하지 않는 파일에 대한 source 구문을 제거하세요.',
+            edit: { file: filePath, removeLine: lineNo, expectedLine: excerpt }
+          }
         })
       }
     }

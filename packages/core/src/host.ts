@@ -2,7 +2,7 @@
 // 어댑터는 이 인터페이스만 통해 외부 상태에 접근하며, child_process/fs에 직접 접근하지 않는다.
 
 import { execFile } from 'node:child_process'
-import { readFile } from 'node:fs/promises'
+import { copyFile, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { promisify } from 'node:util'
 
@@ -19,10 +19,22 @@ export interface DiagnosticHost {
   homedir: string
 }
 
+/**
+ * 쓰기 능력을 가진 호스트. fix 실행 엔진만 이 인터페이스를 받는다.
+ * 어댑터에는 `DiagnosticHost`만 주입해 쓰기 능력 자체를 볼 수 없게 한다
+ * (AGENTS.md "아키텍처 규칙" CRITICAL).
+ */
+export interface FixHost extends DiagnosticHost {
+  writeFile(path: string, content: string): Promise<void>
+  copyFile(from: string, to: string): Promise<void>
+  /** 백업 파일명의 타임스탬프에 쓴다. 테스트가 고정할 수 있도록 주입한다. */
+  now(): Date
+}
+
 const execFileAsync = promisify(execFile)
 
 /** 실환경 구현. child_process/fs를 실제로 호출한다. */
-export class NodeHost implements DiagnosticHost {
+export class NodeHost implements FixHost {
   env = process.env
   homedir = homedir()
 
@@ -43,6 +55,18 @@ export class NodeHost implements DiagnosticHost {
       return null
     }
   }
+
+  async writeFile(path: string, content: string): Promise<void> {
+    await writeFile(path, content, 'utf-8')
+  }
+
+  async copyFile(from: string, to: string): Promise<void> {
+    await copyFile(from, to)
+  }
+
+  now(): Date {
+    return new Date()
+  }
 }
 
 export interface FakeHostOptions {
@@ -50,20 +74,24 @@ export interface FakeHostOptions {
   execResults?: Record<string, ExecResult>
   env?: NodeJS.ProcessEnv
   homedir?: string
+  /** 주입하지 않으면 `new Date()`를 쓴다. 백업 파일명을 고정하고 싶을 때 넘긴다. */
+  now?: Date
 }
 
 /** 테스트 구현. test/fixtures/의 텍스트를 반환하며 실제 파일시스템에 접근하지 않는다. */
-export class FakeHost implements DiagnosticHost {
+export class FakeHost implements FixHost {
   env: NodeJS.ProcessEnv
   homedir: string
   #files: Map<string, string>
   #execResults: Map<string, ExecResult>
+  #now?: Date
 
   constructor(options: FakeHostOptions = {}) {
     this.#files = new Map(Object.entries(options.files ?? {}))
     this.#execResults = new Map(Object.entries(options.execResults ?? {}))
     this.env = options.env ?? {}
     this.homedir = options.homedir ?? '/Users/fixture'
+    this.#now = options.now
   }
 
   async exec(cmd: string, args: string[]): Promise<ExecResult> {
@@ -73,5 +101,19 @@ export class FakeHost implements DiagnosticHost {
 
   async readFile(path: string): Promise<string | null> {
     return this.#files.get(path) ?? null
+  }
+
+  async writeFile(path: string, content: string): Promise<void> {
+    this.#files.set(path, content)
+  }
+
+  async copyFile(from: string, to: string): Promise<void> {
+    const content = this.#files.get(from)
+    if (content === undefined) throw new Error(`FakeHost: 복사할 원본이 없습니다 — ${from}`)
+    this.#files.set(to, content)
+  }
+
+  now(): Date {
+    return this.#now ?? new Date()
   }
 }
