@@ -11,12 +11,26 @@ export interface Evidence {
   excerpt: string
 }
 
+/**
+ * "그 줄을 통째로 지우면 해결되는" 문제에 한정한 구조적 편집 지시.
+ * 임의 셸 명령 실행 대신 이 형태만 실제로 적용한다 (ADR-008).
+ */
+export interface FixEdit {
+  /** 수정 대상 파일의 절대 경로. */
+  file: string
+  /** 삭제할 줄 번호 (1-based). */
+  removeLine: number
+  /** 삭제 직전 대조값. 대상 줄을 trim한 결과가 이 값과 다르면 실행을 거부한다. */
+  expectedLine: string
+}
+
 export interface Fix {
   description: string
   command?: string
   manual?: string
   needsSudo?: boolean
   revert?: string
+  edit?: FixEdit
 }
 
 /** evidence 또는 fix.command 중 최소 하나를 반드시 가져야 한다 (core-types-spec FR-008). */
