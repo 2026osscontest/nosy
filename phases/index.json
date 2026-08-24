@@ -23,7 +23,9 @@
     },
     {
       "dir": "fix-drift-baseline",
-      "status": "pending"
+      "status": "completed",
+      "blocked_at": "2026-08-24T03:26:37+09:00",
+      "completed_at": "2026-08-24T13:04:14+09:00"
     },
     {
       "dir": "ipc-contract",

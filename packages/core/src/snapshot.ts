@@ -18,18 +18,21 @@ export interface SnapshotStore {
 
 /**
  * 이번 실행 범위 안에서만 신규 Finding을 찾는다 (FR-003, FR-004).
- * - 스냅샷 자체가 비어 있으면 첫 실행이다 — 기준선 수립일 뿐 "변화"가 아니므로 드리프트로 보지 않는다.
- *   (앱을 처음 켜자마자 alarmed가 되는 것은 드리프트 감지가 아니다. 기존 문제의 심각도는 헬스 스코어 등급이 표현한다.)
+ * - 기준선 판정은 어댑터별이다. 그 어댑터의 이전 레코드가 없으면 이번이 첫 실행이므로 기준선 수립일 뿐
+ *   "변화"가 아니다 — 며칠 쓰던 사용자가 Docker를 새로 깔았다고 docker의 기존 문제 전부에 놀라면 안 된다.
+ *   (앱을 처음 켜자마자 alarmed가 되는 것도 드리프트 감지가 아니다. 기존 문제의 심각도는 헬스 스코어 등급이 표현한다.)
+ * - 레코드가 있고 findings가 비어 있으면 "검사했고 깨끗했다"는 기준선이므로 정상적으로 비교한다.
  * - skip된 어댑터는 비교하지 않는다 — 미설치를 "문제가 전부 해결됨"으로 읽으면 안 된다.
  * - id 비교는 같은 어댑터 레코드 안에서만 한다.
  */
 export function diffResults(previous: Snapshot, results: AdapterResult[]): DriftResult {
-  if (Object.keys(previous).length === 0) return { hasNewError: false, newFindings: [] }
-
   const newFindings = results
     .filter((result) => !result.skipped)
     .flatMap((result) => {
-      const knownIds = new Set((previous[result.adapter]?.findings ?? []).map((f) => f.id))
+      const baseline = previous[result.adapter]
+      if (!baseline) return []
+
+      const knownIds = new Set(baseline.findings.map((f) => f.id))
       return result.findings.filter((f) => !knownIds.has(f.id))
     })
 
