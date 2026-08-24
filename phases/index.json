@@ -29,7 +29,8 @@
     },
     {
       "dir": "ipc-contract",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-08-24T13:07:17+09:00"
     }
   ]
 }
