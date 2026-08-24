@@ -77,6 +77,8 @@ function fakeWindow(sent: SentMessage[]) {
       send: (channel: string, payload: PetSnapshot) => sent.push({ channel, payload })
     },
     setIgnoreMouseEvents: vi.fn(),
+    getPosition: vi.fn(() => [100, 200]),
+    setPosition: vi.fn(),
     isDestroyed: () => false
   } as unknown as BrowserWindow
 }
@@ -93,12 +95,21 @@ describe('preload 브릿지', () => {
     expect(key).toBe('nosy')
   })
 
-  it('약속한 6개 항목을 노출한다', async () => {
+  it('약속한 7개 항목을 노출한다', async () => {
     const { api } = await loadBridge()
 
     expect(Object.keys(api).sort()).toEqual(
-      ['applyFix', 'onState', 'platform', 'revertFix', 'run', 'setClickThrough'].sort()
+      ['applyFix', 'moveBy', 'onState', 'platform', 'revertFix', 'run', 'setClickThrough'].sort()
     )
+  })
+
+  // 드래그는 초당 수십 번 발생한다. 응답을 기다리면 창이 커서를 따라오지 못한다.
+  it('moveBy는 응답을 기다리지 않고 send로 보낸다', async () => {
+    const { api } = await loadBridge()
+    ;(api.moveBy as (dx: number, dy: number) => void)(3, -4)
+
+    expect(mocks.rendererSend).toHaveBeenCalledWith(CHANNEL.moveBy, 3, -4)
+    expect(mocks.invoke).not.toHaveBeenCalled()
   })
 
   // ipcRenderer를 통째로 노출하면 renderer가 임의 채널을 부를 수 있다.
@@ -215,6 +226,34 @@ describe('registerIpcHandlers', () => {
     ]
 
     expect(registered).not.toContain(CHANNEL.state)
+  })
+
+  it('moveBy는 현재 위치에 델타를 더해 창을 옮긴다 (pet-window FR-001)', async () => {
+    const { window, onHandler } = await register()
+
+    onHandler(CHANNEL.moveBy)?.({}, 12, -5)
+
+    expect(window.setPosition).toHaveBeenCalledWith(112, 195)
+  })
+
+  // Retina·트랙패드에서 screenX가 소수로 오는데 setPosition은 정수만 받는다.
+  // 소수를 그대로 넘기면 main 프로세스가 통째로 죽는다(실제로 죽었다).
+  it('소수 델타가 들어와도 정수 좌표로 옮긴다', async () => {
+    const { window, onHandler } = await register()
+
+    onHandler(CHANNEL.moveBy)?.({}, 0.5, -0.5)
+
+    const [x, y] = vi.mocked(window.setPosition).mock.calls[0]
+    expect(Number.isInteger(x)).toBe(true)
+    expect(Number.isInteger(y)).toBe(true)
+  })
+
+  it('숫자가 아닌 델타는 무시한다', async () => {
+    const { window, onHandler } = await register()
+
+    onHandler(CHANNEL.moveBy)?.({}, Number.NaN, undefined)
+
+    expect(window.setPosition).not.toHaveBeenCalled()
   })
 
   it('setClickThrough는 창의 setIgnoreMouseEvents로 이어진다 (pet-window FR-002)', async () => {

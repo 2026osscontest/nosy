@@ -1,3 +1,14 @@
+/* 색은 캐릭터 애셋에 이미 확정된 팔레트를 그대로 쓴다 (assets/character/README.md).
+   docs/UI_GUIDE.md의 색상 절은 아직 "미정"이라 새 팔레트를 임의로 만들지 않았다.
+   같은 문서의 안티패턴(글로우·그라데이션·blur·보라)은 하나도 쓰지 않는다. */
+:root {
+  --cream: #f5e1c8;
+  --cream-shade: #e0c39d;
+  --ink: #3a2a1e;
+  --coral: #e8795a;
+  --alarm: #d64545;
+}
+
 /* 투명 창(pet-window-spec FR-001). 배경을 명시적으로 비우지 않으면
    Chromium 기본 흰 배경이 그대로 그려져 투명 창에 흰 사각형이 뜬다. */
 html,
@@ -6,14 +17,109 @@ body {
   height: 100%;
   background: transparent;
   overflow: hidden;
-  /* 펫 스프라이트를 드래그로 집어 브라우저 기본 이미지 드래그가 뜨는 걸 막는다. */
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  color: var(--ink);
+  /* 펫을 끌 때 브라우저 기본 이미지 드래그가 뜨는 걸 막는다. */
   user-select: none;
   -webkit-user-drag: none;
 }
 
-#root {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+#root,
+.pet-stage {
+  position: relative;
   height: 100%;
+}
+
+/* 펫과 말풍선을 한 덩어리로 묶어 창 아래쪽 가운데에 세운다.
+   나머지 영역은 비어 있고 클릭이 관통된다. */
+.pet-interactive {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.pet-anchor {
+  line-height: 0;
+  cursor: grab;
+}
+
+/* -webkit-user-drag는 상속되지 않는다. body에만 걸면 <img>가 여전히 네이티브
+   드래그앤드롭의 소스가 되어, 복사 커서와 고스트 이미지가 뜨고 포인터 이벤트가
+   끊긴다 — 그러면 창을 옮기는 우리 핸들러가 아예 돌지 못한다. */
+.pet-anchor img {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.pet-anchor[data-dragging='true'] {
+  cursor: grabbing;
+}
+
+.bubble {
+  min-width: 190px;
+  max-width: 320px;
+  padding: 10px 13px;
+  background: var(--cream);
+  border: 2px solid var(--ink);
+  border-radius: 7px;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+.bubble-score {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding-bottom: 7px;
+  margin-bottom: 7px;
+  border-bottom: 1px solid var(--cream-shade);
+}
+
+.bubble-score-value {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.bubble-score-grade {
+  font-size: 12px;
+  color: var(--coral);
+  font-weight: 600;
+}
+
+.bubble-body {
+  margin: 0;
+}
+
+.bubble-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* 심각도는 왼쪽 굵은 선 하나로만 구분한다 — 배지나 글로우를 얹지 않는다. */
+.bubble-title[data-severity='error'] {
+  border-left: 3px solid var(--alarm);
+  padding-left: 7px;
+}
+
+.bubble-title[data-severity='warn'] {
+  border-left: 3px solid var(--coral);
+  padding-left: 7px;
+}
+
+.bubble-evidence {
+  margin: 5px 0 0 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.bubble-clear {
+  font-size: 13px;
 }

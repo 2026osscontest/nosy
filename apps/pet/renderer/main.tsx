@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { PetView } from './PetView'
+import { PetStage } from './PetStage'
 import type { PetSnapshot } from '../shared/ipc'
 import './index.css'
 
@@ -14,8 +14,7 @@ function App() {
     return off
   }, [])
 
-  // 첫 스냅샷이 오기 전까지는 idle. main이 곧 thinking을 밀어넣는다.
-  return <PetView state={snapshot?.petState ?? 'idle'} />
+  return <PetStage snapshot={snapshot} />
 }
 
 const container = document.getElementById('root')

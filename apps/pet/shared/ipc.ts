@@ -1,8 +1,12 @@
 // main·preload·renderer 세 곳이 공유하는 IPC 계약.
 // electron을 import하지 않는다 — renderer 번들에서도 그대로 로드되어야 한다.
+//
+// CRITICAL: renderer는 이 파일에서 **타입만** 가져가야 한다. 값을 하나라도 import하면
+// 아래 computeHealthScore를 타고 @nosy/core 배럴 전체가 renderer 번들에 들어가고,
+// host.js의 node:child_process에서 터진다. renderer용 순수 헬퍼는 renderer/ 아래에 둔다.
 
 import { computeHealthScore } from '@nosy/core'
-import type { AdapterResult, DriftResult, Finding, HealthScore, PetState } from '@nosy/core'
+import type { AdapterResult, DriftResult, HealthScore, PetState } from '@nosy/core'
 
 /** 채널 이름은 'nosy:' 접두사로 고정한다 — 다른 앱·라이브러리와 겹치지 않게. */
 export const CHANNEL = {
@@ -106,17 +110,3 @@ export interface NosyApi {
   onState(handler: (snapshot: PetSnapshot) => void): () => void
 }
 
-/**
- * 말풍선에 요약할 문제 1건 (pet-window-spec FR-004).
- * error가 있으면 그중 첫 건, 없으면 warn 중 첫 건. 보여줄 문제가 없으면 undefined.
- * results 순서는 ADAPTERS 등록 순서이므로, 같은 심각도면 먼저 등록된 어댑터가 앞선다.
- * skip된 어댑터는 findings가 비어 있어 자연히 후보에서 빠진다.
- */
-export function mostSevereFinding(results: AdapterResult[]): Finding | undefined {
-  const findings = results.flatMap((result) => result.findings)
-
-  return (
-    findings.find((finding) => finding.severity === 'error') ??
-    findings.find((finding) => finding.severity === 'warn')
-  )
-}

@@ -81,10 +81,12 @@ export function registerIpcHandlers(
   })
 
   ipcMain.on(CHANNEL.moveBy, (_event, dx: number, dy: number) => {
-    // 화면 좌표 델타를 그대로 더한다. renderer가 커서의 screenX/screenY 차이를 보내므로
-    // 창이 커서 아래에서 움직여도 어긋나지 않는다.
+    // setPosition은 정수만 받는다. 소수가 들어가면 main 프로세스가 통째로 죽으므로
+    // renderer가 정수를 보내더라도 여기서 한 번 더 막는다.
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) return
+
     const [x, y] = window.getPosition()
-    window.setPosition(x + dx, y + dy)
+    window.setPosition(Math.round(x + dx), Math.round(y + dy))
   })
 
   ipcMain.handle(CHANNEL.applyFix, notImplemented)

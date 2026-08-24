@@ -17,6 +17,9 @@ export function createWindow(): BrowserWindow {
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
+    // 투명 창이어도 macOS는 창 사각형 전체에 드롭섀도를 그린다. 펫 뒤로 네모난
+    // 그림자가 비치고, 포커스를 받으면 활성 창용 진한 그림자로 바뀌어 더 도드라진다.
+    hasShadow: false,
     webPreferences: {
       preload: join(dirname, '../preload/preload.mjs'),
       // preload가 ESM(.mjs)이라 샌드박스를 끄지 않으면 로드 자체가 조용히 실패해
