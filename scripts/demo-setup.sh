@@ -84,6 +84,7 @@ cmd_clean() {
   if [ -d "$DEMO_HOME" ]; then
     echo "이 스크립트가 만든 파일은 지웠다. 남은 것이 있어 $DEMO_HOME 자체는 두었다:"
     ls -A "$DEMO_HOME"
+    echo "(Library/ 는 Electron이 이 HOME 아래에 만든 앱 데이터다. 지워도 무방하다.)"
   else
     echo "삭제: $DEMO_HOME"
   fi
