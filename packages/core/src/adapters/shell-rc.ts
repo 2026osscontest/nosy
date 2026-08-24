@@ -26,6 +26,16 @@ function expandHomePrefix(value: string, host: DiagnosticHost): string {
   return value
 }
 
+// $HOME/~ 는 위에서 확장할 수 있지만 $ZSH·${VAR:-기본값}·$(...)·와일드카드는 셸을 실제로
+// 돌려야만 값을 알 수 있다. 확인할 수 없는 경로를 "없다"고 단정하면 powerlevel10k의
+// `${XDG_CACHE_HOME:-...}`나 oh-my-zsh의 `$ZSH/oh-my-zsh.sh`처럼 멀쩡한 설정을 문제로
+// 보고하게 된다 — 게다가 이제 그 finding에는 줄 삭제 fix가 붙는다. 오탐보다 미탐을 택한다.
+const UNRESOLVABLE_EXPANSION = /[$`{}*?[\]]/
+
+function isUnresolvable(path: string): boolean {
+  return UNRESOLVABLE_EXPANSION.test(path)
+}
+
 // which로 조회하면 실패하는 셸 빌트인 — alias 대상이 이들이면 존재하는 것으로 취급한다.
 const SHELL_BUILTINS = new Set([
   'cd', 'source', '.', 'pushd', 'popd', 'exit', 'alias', 'unalias',
@@ -102,7 +112,12 @@ async function scanFile(host: DiagnosticHost, filePath: string, content: string,
         }
         seenPathSegments.add(segment)
 
-        const result = await host.exec('test', ['-e', expandHomePrefix(segment, host)])
+        // 중복 판정은 문자열 비교라 확장 없이도 정확하므로 위에서 먼저 한다.
+        // 존재 확인만 건너뛴다.
+        const expandedSegment = expandHomePrefix(segment, host)
+        if (isUnresolvable(expandedSegment)) continue
+
+        const result = await host.exec('test', ['-e', expandedSegment])
         if (result.code !== 0) {
           findings.push({
             id: `shell-rc:${filePath}:${lineNo}:missing-path:${segment}`,
@@ -143,7 +158,10 @@ async function scanFile(host: DiagnosticHost, filePath: string, content: string,
           seenAliasNames.add(name)
         }
 
-        if (target.length > 0) {
+        const expandedTarget = expandHomePrefix(target, host)
+
+        // 값을 알 수 없는 대상(`alias k=$KUBECTL_BIN`)은 죽었는지 판단할 수 없다.
+        if (target.length > 0 && !isUnresolvable(expandedTarget)) {
           const isPath =
             target.startsWith('/') ||
             target.startsWith('~') ||
@@ -156,8 +174,8 @@ async function scanFile(host: DiagnosticHost, filePath: string, content: string,
           const result = isBuiltin
             ? { stdout: '', stderr: '', code: 0 }
             : isPath
-              ? await host.exec('test', ['-e', expandHomePrefix(target, host)])
-              : await host.exec('which', [target])
+              ? await host.exec('test', ['-e', expandedTarget])
+              : await host.exec('which', [expandedTarget])
 
           if (result.code !== 0) {
             findings.push({
@@ -179,10 +197,10 @@ async function scanFile(host: DiagnosticHost, filePath: string, content: string,
 
     if (trimmed.startsWith('source ') || trimmed.startsWith('. ')) {
       const rawPath = trimmed.startsWith('source ') ? trimmed.slice('source '.length) : trimmed.slice('. '.length)
-      const sourcePath = stripQuotes(rawPath)
-      const sourced = await host.readFile(sourcePath)
+      const sourcePath = expandHomePrefix(stripQuotes(rawPath), host)
 
-      if (sourced === null) {
+      // 값을 알 수 없는 경로(`source $ZSH/oh-my-zsh.sh`)는 없는지 확인할 방법이 없다.
+      if (!isUnresolvable(sourcePath) && (await host.readFile(sourcePath)) === null) {
         findings.push({
           id: `shell-rc:${filePath}:${lineNo}:missing-source`,
           adapter: 'shell-rc',

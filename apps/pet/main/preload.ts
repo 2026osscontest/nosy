@@ -16,6 +16,8 @@ const api: NosyApi = {
 
   setClickThrough: (ignore: boolean): void => ipcRenderer.send(CHANNEL.setClickThrough, ignore),
 
+  moveBy: (dx: number, dy: number): void => ipcRenderer.send(CHANNEL.moveBy, dx, dy),
+
   applyFix: (findingId: string): Promise<FixResult> =>
     ipcRenderer.invoke(CHANNEL.applyFix, findingId),
 

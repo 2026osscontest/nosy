@@ -80,6 +80,13 @@ export function registerIpcHandlers(
     window.setIgnoreMouseEvents(ignore, { forward: true })
   })
 
+  ipcMain.on(CHANNEL.moveBy, (_event, dx: number, dy: number) => {
+    // 화면 좌표 델타를 그대로 더한다. renderer가 커서의 screenX/screenY 차이를 보내므로
+    // 창이 커서 아래에서 움직여도 어긋나지 않는다.
+    const [x, y] = window.getPosition()
+    window.setPosition(x + dx, y + dy)
+  })
+
   ipcMain.handle(CHANNEL.applyFix, notImplemented)
   ipcMain.handle(CHANNEL.revertFix, notImplemented)
 

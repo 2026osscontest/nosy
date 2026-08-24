@@ -8,8 +8,10 @@ const dirname = fileURLToPath(new URL('.', import.meta.url))
 
 export function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
-    width: 200,
-    height: 200,
+    // 펫보다 크게 잡는다 — 말풍선이 창 밖으로 잘리면 안 된다. 남는 영역은
+    // 클릭 관통(FR-002)으로 비워 두므로 아래 창을 가리지 않는다.
+    width: 380,
+    height: 300,
     transparent: true,
     frame: false,
     alwaysOnTop: true,

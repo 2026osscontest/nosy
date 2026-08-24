@@ -112,6 +112,41 @@ describe('runShellRcAdapter', () => {
     expect(finding.cause.toLowerCase()).toContain('nvm')
   })
 
+  // 회귀 테스트 — 실제 ~/.zshrc로 검증하다 발견한 오탐. p10k의 `${XDG_CACHE_HOME:-...}`와
+  // oh-my-zsh의 `$ZSH/oh-my-zsh.sh`를 "존재하지 않는 파일"로 단정해 error를 냈다.
+  // 셸을 돌려야만 알 수 있는 경로는 확인할 수 없으므로 단정하지 않는다 — 오탐보다 미탐이 낫다.
+  it('해석할 수 없는 셸 확장이 든 경로는 문제로 보고하지 않는다', async () => {
+    const host = new FakeHost({
+      homedir,
+      files: { [`${homedir}/.zshrc`]: loadFixture('unresolvable-expansion.zshrc') },
+      execResults: {
+        // 확장하지 못한 리터럴을 그대로 조회하면 당연히 실패한다 — 그 실패를 근거로 삼으면 안 된다.
+        'which $KUBECTL_BIN': { stdout: '', stderr: '', code: 1 },
+        'test -e $CARGO_HOME/bin': { stdout: '', stderr: '', code: 1 }
+      }
+    })
+
+    await expect(runShellRcAdapter(host)).resolves.toEqual([])
+  })
+
+  // source 분기만 expandHomePrefix를 빠뜨려, 멀쩡한 `source $HOME/...`을 전부 error로 냈다.
+  it('source 경로의 $HOME과 ~를 확장한 뒤 존재를 확인한다', async () => {
+    const host = new FakeHost({
+      homedir,
+      files: {
+        [`${homedir}/.zshrc`]: loadFixture('home-var-source.zshrc'),
+        [`${homedir}/.exists.sh`]: '# stub\n',
+        [`${homedir}/.tilde-exists.sh`]: '# stub\n'
+      }
+    })
+
+    const findings = await runShellRcAdapter(host)
+
+    expect(findings).toHaveLength(1)
+    expect(findings[0].evidence?.line).toBe(2)
+    expect(findings[0].cause).toContain('.missing.sh')
+  })
+
   it('.bashrc/.zprofile이 없으면 조용히 건너뛴다(에러 없음)', async () => {
     const host = new FakeHost({
       homedir,
