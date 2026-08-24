@@ -84,3 +84,21 @@ export function thinkingSnapshot(previous?: PetSnapshot): PetSnapshot {
 
   return { ...previous, petState: 'thinking' }
 }
+
+/**
+ * renderer가 보는 `window.nosy`의 표면. preload가 이 타입을 구현하고
+ * renderer의 전역 선언(`renderer/nosy.d.ts`)이 같은 타입을 참조한다 — 한쪽만 고쳐 갈라지는 걸 막는다.
+ *
+ * 결과 전달은 push 단일 경로다. `run`은 요청만 보내고 답을 기다리지 않으며,
+ * 누가 시작했든(펫 클릭·Tray·타이머) 결과는 항상 `onState`로 도착한다.
+ */
+export interface NosyApi {
+  /** IPC 왕복 없이 preload가 상수로 준다 (pet-window-spec FR-005). */
+  platform: string
+  run(scope: DiagnosticScope): void
+  setClickThrough(ignore: boolean): void
+  applyFix(findingId: string): Promise<FixResult>
+  revertFix(findingId: string): Promise<FixResult>
+  /** 반환값은 구독 해제 함수 — React useEffect의 정리 함수로 그대로 쓴다. */
+  onState(handler: (snapshot: PetSnapshot) => void): () => void
+}

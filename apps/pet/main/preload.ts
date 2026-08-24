@@ -5,9 +5,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import { CHANNEL } from '../shared/ipc'
-import type { DiagnosticScope, FixResult, PetSnapshot } from '../shared/ipc'
+import type { DiagnosticScope, FixResult, NosyApi, PetSnapshot } from '../shared/ipc'
 
-contextBridge.exposeInMainWorld('nosy', {
+// NosyApi로 못박아 둔다 — 여기서 빠뜨린 메서드는 renderer의 전역 선언과 어긋나 컴파일에서 걸린다.
+const api: NosyApi = {
   /** IPC 왕복 없이 상수로 준다 (pet-window-spec FR-005). */
   platform: process.platform,
 
@@ -29,4 +30,6 @@ contextBridge.exposeInMainWorld('nosy', {
     ipcRenderer.on(CHANNEL.state, listener)
     return () => ipcRenderer.removeListener(CHANNEL.state, listener)
   }
-})
+}
+
+contextBridge.exposeInMainWorld('nosy', api)

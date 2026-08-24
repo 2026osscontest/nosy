@@ -1,0 +1,19 @@
+/* 투명 창(pet-window-spec FR-001). 배경을 명시적으로 비우지 않으면
+   Chromium 기본 흰 배경이 그대로 그려져 투명 창에 흰 사각형이 뜬다. */
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  /* 펫 스프라이트를 드래그로 집어 브라우저 기본 이미지 드래그가 뜨는 걸 막는다. */
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+#root {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}

@@ -40,14 +40,26 @@ let latest: PetSnapshot | undefined
 
 const notImplemented = (): FixResult => ({ ok: false, error: '아직 구현되지 않았습니다' })
 
+/**
+ * renderer 밖(Tray·스케줄러)에서 진단을 트리거하는 창구.
+ * IPC 채널과 같은 단일 실행 가드를 공유해야 하므로 별도 함수로 만들지 않고 여기서 넘겨준다.
+ */
+export interface DiagnosticsRunner {
+  /** 이미 진단이 돌고 있으면 무시된다. 결과는 언제나 CHANNEL.state로만 도착한다. */
+  run(scope: DiagnosticScope): Promise<void>
+}
+
 /** IPC 핸들러를 등록한다. 결과는 window.webContents로 밀어넣는다. */
-export function registerIpcHandlers(window: BrowserWindow, deps: DiagnosticsDeps): void {
+export function registerIpcHandlers(
+  window: BrowserWindow,
+  deps: DiagnosticsDeps
+): DiagnosticsRunner {
   const push = (snapshot: PetSnapshot): void => {
     if (window.isDestroyed()) return
     window.webContents.send(CHANNEL.state, snapshot)
   }
 
-  ipcMain.on(CHANNEL.run, async (_event, scope: DiagnosticScope) => {
+  const run = async (scope: DiagnosticScope): Promise<void> => {
     if (running) return
     running = true
 
@@ -59,7 +71,9 @@ export function registerIpcHandlers(window: BrowserWindow, deps: DiagnosticsDeps
     } finally {
       running = false
     }
-  })
+  }
+
+  ipcMain.on(CHANNEL.run, (_event, scope: DiagnosticScope) => run(scope))
 
   ipcMain.on(CHANNEL.setClickThrough, (_event, ignore: boolean) => {
     // forward: true라야 관통 중에도 창이 마우스 이동을 계속 받아 펫 영역 복귀를 감지한다 (FR-002).
@@ -68,4 +82,6 @@ export function registerIpcHandlers(window: BrowserWindow, deps: DiagnosticsDeps
 
   ipcMain.handle(CHANNEL.applyFix, notImplemented)
   ipcMain.handle(CHANNEL.revertFix, notImplemented)
+
+  return { run }
 }
