@@ -20,5 +20,6 @@
       "summary": "packages/core/src/snapshot.ts의 diffResults에서 스냅샷 전체 기준 early return을 제거하고 기준선 판정을 어댑터별로 전환했다(previous[result.adapter] 레코드가 없으면 그 어댑터는 신규 판정 제외, 빈 findings 레코드는 '검사했고 깨끗했다' 기준선으로 정상 diff). 주석의 '스냅샷 자체가 비어 있으면' 서술도 어댑터별 서술로 교체했으며, mergeResults/NodeSnapshotStore·시그니처는 무변경. AC(lint/build/test) 전부 통과 — packages/core 129건, snapshot.test.ts 27건(기존 25 + 신규 2)."
     }
   ],
-  "created_at": "2026-08-24T03:24:35+09:00"
+  "created_at": "2026-08-24T03:24:35+09:00",
+  "completed_at": "2026-08-24T13:04:14+09:00"
 }
