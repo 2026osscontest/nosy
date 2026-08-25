@@ -137,6 +137,21 @@ async function checkPythonVersion(host: DiagnosticHost, findings: Finding[]): Pr
   })
 }
 
+/**
+ * 한 파일을 스캔하는 동안 발급한 id를 세어, 같은 id가 다시 나오면 순번 접미사를 붙인다.
+ * 줄 번호를 id에서 뺀 뒤에도 남는 충돌(같은 줄이 두 번 있는 경우 등)을 덮기 위한 것이며,
+ * 순번은 "이 파일에서 몇 번째로 나온 같은 문제인가"이므로 무관한 줄이 위에 끼어들어도
+ * 변하지 않는다.
+ */
+function createIdFactory(): (base: string) => string {
+  const counts = new Map<string, number>()
+  return (base) => {
+    const nth = (counts.get(base) ?? 0) + 1
+    counts.set(base, nth)
+    return nth === 1 ? base : `${base}#${nth}`
+  }
+}
+
 async function checkRcInitPlacement(host: DiagnosticHost, findings: Finding[]): Promise<void> {
   const files: { filePath: string; lines: { line: string; lineNo: number }[] }[] = []
 
@@ -151,6 +166,7 @@ async function checkRcInitPlacement(host: DiagnosticHost, findings: Finding[]): 
   let hasPyenvInitAnywhere = false
 
   for (const { filePath, lines } of files) {
+    const nextId = createIdFactory()
     const lastLine = lines.at(-1)
     const lastLineNo = lastLine ? lastLine.lineNo : -1
 
@@ -161,7 +177,7 @@ async function checkRcInitPlacement(host: DiagnosticHost, findings: Finding[]): 
         hasNvmInitAnywhere = true
         if (lineNo !== lastLineNo) {
           findings.push({
-            id: `version-manager:${filePath}:${lineNo}:misplaced-init:nvm`,
+            id: nextId(`version-manager:${filePath}:misplaced-init:nvm`),
             adapter: 'version-manager',
             severity: 'warn',
             title: 'nvm 초기화 줄이 rc 파일 마지막에 있지 않습니다',
@@ -176,7 +192,7 @@ async function checkRcInitPlacement(host: DiagnosticHost, findings: Finding[]): 
         hasPyenvInitAnywhere = true
         if (lineNo !== lastLineNo) {
           findings.push({
-            id: `version-manager:${filePath}:${lineNo}:misplaced-init:pyenv`,
+            id: nextId(`version-manager:${filePath}:misplaced-init:pyenv`),
             adapter: 'version-manager',
             severity: 'warn',
             title: 'pyenv 초기화 줄이 rc 파일 마지막에 있지 않습니다',

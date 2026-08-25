@@ -72,7 +72,23 @@ export async function runShellRcAdapter(host: DiagnosticHost): Promise<Finding[]
   return findings
 }
 
+/**
+ * 한 파일을 스캔하는 동안 발급한 id를 세어, 같은 id가 다시 나오면 순번 접미사를 붙인다.
+ * 줄 번호를 id에서 뺀 뒤에도 남는 충돌(같은 줄이 두 번 있는 경우 등)을 덮기 위한 것이며,
+ * 순번은 "이 파일에서 몇 번째로 나온 같은 문제인가"이므로 무관한 줄이 위에 끼어들어도
+ * 변하지 않는다.
+ */
+function createIdFactory(): (base: string) => string {
+  const counts = new Map<string, number>()
+  return (base) => {
+    const nth = (counts.get(base) ?? 0) + 1
+    counts.set(base, nth)
+    return nth === 1 ? base : `${base}#${nth}`
+  }
+}
+
 async function scanFile(host: DiagnosticHost, filePath: string, content: string, findings: Finding[]): Promise<void> {
+  const nextId = createIdFactory()
   const seenPathSegments = new Set<string>()
   const seenAliasNames = new Set<string>()
   let versionConflictReported = false
@@ -100,7 +116,7 @@ async function scanFile(host: DiagnosticHost, filePath: string, content: string,
       for (const segment of segments) {
         if (seenPathSegments.has(segment)) {
           findings.push({
-            id: `shell-rc:${filePath}:${lineNo}:dup-path:${segment}`,
+            id: nextId(`shell-rc:${filePath}:dup-path:${segment}`),
             adapter: 'shell-rc',
             severity: 'warn',
             title: 'PATH에 중복된 항목이 있습니다',
@@ -120,7 +136,7 @@ async function scanFile(host: DiagnosticHost, filePath: string, content: string,
         const result = await host.exec('test', ['-e', expandedSegment])
         if (result.code !== 0) {
           findings.push({
-            id: `shell-rc:${filePath}:${lineNo}:missing-path:${segment}`,
+            id: nextId(`shell-rc:${filePath}:missing-path:${segment}`),
             adapter: 'shell-rc',
             severity: 'warn',
             title: '존재하지 않는 PATH 항목이 있습니다',
@@ -143,7 +159,7 @@ async function scanFile(host: DiagnosticHost, filePath: string, content: string,
 
         if (seenAliasNames.has(name)) {
           findings.push({
-            id: `shell-rc:${filePath}:${lineNo}:dup-alias:${name}`,
+            id: nextId(`shell-rc:${filePath}:dup-alias:${name}`),
             adapter: 'shell-rc',
             severity: 'warn',
             title: '중복 정의된 alias가 있습니다',
@@ -179,7 +195,7 @@ async function scanFile(host: DiagnosticHost, filePath: string, content: string,
 
           if (result.code !== 0) {
             findings.push({
-              id: `shell-rc:${filePath}:${lineNo}:dead-alias:${name}`,
+              id: nextId(`shell-rc:${filePath}:dead-alias:${name}`),
               adapter: 'shell-rc',
               severity: 'warn',
               title: '대상이 존재하지 않는 alias가 있습니다',
@@ -202,7 +218,7 @@ async function scanFile(host: DiagnosticHost, filePath: string, content: string,
       // 값을 알 수 없는 경로(`source $ZSH/oh-my-zsh.sh`)는 없는지 확인할 방법이 없다.
       if (!isUnresolvable(sourcePath) && (await host.readFile(sourcePath)) === null) {
         findings.push({
-          id: `shell-rc:${filePath}:${lineNo}:missing-source`,
+          id: nextId(`shell-rc:${filePath}:missing-source:${sourcePath}`),
           adapter: 'shell-rc',
           severity: 'error',
           title: '존재하지 않는 파일을 source하고 있습니다',
@@ -219,7 +235,7 @@ async function scanFile(host: DiagnosticHost, filePath: string, content: string,
     if (!versionConflictReported && line.includes('asdf.sh') && hasAsdfInit) {
       if (hasNvmInit) {
         findings.push({
-          id: `shell-rc:${filePath}:${lineNo}:version-conflict:nvm`,
+          id: nextId(`shell-rc:${filePath}:version-conflict:nvm`),
           adapter: 'shell-rc',
           severity: 'warn',
           title: '버전 매니저 초기화 충돌이 있습니다',
@@ -230,7 +246,7 @@ async function scanFile(host: DiagnosticHost, filePath: string, content: string,
         versionConflictReported = true
       } else if (hasPyenvInit) {
         findings.push({
-          id: `shell-rc:${filePath}:${lineNo}:version-conflict:pyenv`,
+          id: nextId(`shell-rc:${filePath}:version-conflict:pyenv`),
           adapter: 'shell-rc',
           severity: 'warn',
           title: '버전 매니저 초기화 충돌이 있습니다',
