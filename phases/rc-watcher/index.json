@@ -1,0 +1,20 @@
+{
+  "project": "nosy",
+  "phase": "rc-watcher",
+  "steps": [
+    {
+      "step": 0,
+      "name": "rc-watcher",
+      "ac": [
+        "lint",
+        "build",
+        "test"
+      ],
+      "tests": [
+        "apps/pet/test/rc-watcher.test.ts"
+      ],
+      "status": "pending",
+      "body": "# Step 0: rc-watcher\n\n셸 rc 파일이 바뀌는 즉시 재진단하는 감시자를 만든다.\n\n## 읽어야 할 파일\n\n- `AGENTS.md` — 특히 \"알려진 함정\" 절\n- `docs/specs/drift-detection-spec.md` — FR-005, FR-006\n- `apps/pet/main/scheduler.ts` — **이 파일과 같은 계열이다. 구조·주석 톤을 맞춰라.**\n- `apps/pet/main/ipc.ts` — `DiagnosticsRunner` 인터페이스. **수정하지 마라. 타입만 import한다.**\n- `apps/pet/main/index.ts` — 호출부. 여기에 배선해야 한다.\n- `apps/pet/test/rc-watcher.test.ts` — 이번 합격 기준\n\n## 왜 하는가\n\n사용자가 에디터로 `~/.zshrc`를 직접 고쳐도 지금은 화면이 그대로다. Tray의 \"지금 진단하기\"나 펫 클릭으로 직접 재진단을 시켜야 반영된다. 고치고 앱으로 돌아왔을 때 이미 반영돼 있어야 한다.\n\n## 작업\n\n`apps/pet/main/rc-watcher.ts`를 새로 만든다.\n\n```ts\nexport function startRcWatcher(runner: DiagnosticsRunner, homedir: string): void\n```\n\n- 감시 대상은 `.zshrc`, `.bashrc`, `.zprofile` 세 개다. `homedir` 아래 경로로 만든다.\n  이 목록은 `packages/core/src/adapters/shell-rc.ts`의 `RC_FILENAMES`와 같은 값이지만 그쪽은 export되어 있지 않다. **core를 고쳐 export하지 말고 이 파일에 상수로 두되, 두 곳이 같은 목록이라는 사실을 주석에 남겨라.**\n- 파일이 바뀌면 `runner.run('self')`를 부른다. 자체형 어댑터만 돌린다 (FR-006) — rc 파일 내용이 달라졌을 뿐이므로 `brew doctor`까지 돌릴 이유가 없다.\n- 기동만으로는 진단하지 않는다. 최초 1회는 renderer 마운트가 이미 담당한다.\n- 진단은 반드시 `runner.run`으로만 트리거한다. 자체 진단 로직을 넣지 마라 — 실행 가드를 우회하게 된다.\n- `runner.run`은 Promise를 반환한다. `scheduler.ts`의 관례(`() => void runner.run(...)`)를 따라 부유 Promise를 명시 처리하라.\n\n### 감시 방식: `fs.watchFile`을 써라 (`fs.watch`가 아니다)\n\n`fs.watch`가 더 즉각적이지만 쓰면 안 된다. 에디터 대부분은 \"임시 파일에 쓰고 rename\"으로 저장하는데, 그 순간 `fs.watch`는 원본 inode를 붙들고 있어 **에러 없이 조용히 죽는다.** 이후 아무리 파일을 고쳐도 반응이 없고, 실패한 사실조차 드러나지 않는다.\n\n`fs.watchFile(path, { interval }, listener)`는 stat 폴링이라 파일이 통째로 교체돼도 계속 따라간다. `interval`은 2000(2초) 정도로 둔다 — 테스트가 1000~5000 범위를 요구한다.\n\n리스너는 `(curr: Stats, prev: Stats)`를 받고, 파일이 그대로여도 폴링할 때마다 불린다. **`mtimeMs`가 실제로 달라졌을 때만** 진단하라. 없는 파일의 `mtimeMs`는 0이므로, 없던 파일이 생기거나 있던 파일이 지워지는 경우도 자연히 변화로 잡힌다.\n\n### 배선\n\n`apps/pet/main/index.ts`에서 `startScheduler(runner)` 옆에 `startRcWatcher(runner, <홈 경로>)`를 부른다. 홈 경로는 이미 만들고 있는 `NodeHost`의 `homedir`를 쓰면 된다 — `os.homedir()`를 새로 부르지 말고 그 인스턴스를 변수로 뽑아 재사용하라. 두 경로가 갈리면 어댑터가 보는 홈과 감시하는 홈이 달라질 수 있다(데모 환경이 `HOME`을 바꿔 띄운다).\n\n## Acceptance Criteria\n\n- AC 명령: lint, build, test\n- 기준 테스트: `apps/pet/test/rc-watcher.test.ts` — **이 테스트가 너의 합격 기준이다.**\n\n## 검증 절차\n\n1. AC 명령을 직접 실행해보며 자가수정하라. 단, 합격 판정은 러너가 내린다.\n2. 작업을 마치면 `phases/rc-watcher/step0-output.json`에 `{\"summary\": \"산출물 한 줄 요약\"}`을 작성하라.\n\n## 금지사항\n\n- 테스트 파일을 수정·삭제·추가하지 마라 (잠금이 걸려 있다). 기준이 잘못됐다면 output에 blocked_reason으로 신고하라.\n- `phases/` 아래 index.json을 수정하지 마라 (러너 전유물).\n- `apps/pet/main/ipc.ts`·`apps/pet/main/scheduler.ts`·`apps/pet/shared/ipc.ts`를 수정하지 마라. 이유: 이 step의 범위 밖이고 다른 작업과 병합 충돌이 난다.\n- `apps/pet/renderer/` 아래를 건드리지 마라. 이유: 다른 세션이 동시에 작업 중이다.\n- `packages/core/` 아래를 건드리지 마라. 이유: RC 파일 목록을 export하려고 core를 고치지 말라는 뜻이다. 위 작업 지시 참조.\n- 감시 대상을 홈 디렉토리 전체나 상위 디렉토리로 넓히지 마라. 이유: 상주 앱이 사용자 홈 전체를 폴링하게 된다.\n- 기존 테스트를 깨뜨리지 마라.\n"
+    }
+  ]
+}
