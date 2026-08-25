@@ -3,23 +3,28 @@
   "phases": [
     {
       "dir": "mvp-kickoff",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-08-21T22:41:47+09:00"
     },
     {
       "dir": "adapter-version-manager",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-08-23T22:49:27+09:00"
     },
     {
       "dir": "health-score",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-08-24T03:09:29+09:00"
     },
     {
       "dir": "snapshot-drift",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-08-24T03:05:06+09:00"
     },
     {
       "dir": "adapter-homebrew",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-08-24T03:05:07+09:00"
     },
     {
       "dir": "fix-drift-baseline",
