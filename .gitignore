@@ -23,3 +23,6 @@ phases/**/step*-output.json
 
 # scripts/demo-setup.sh가 만드는 시연용 홈
 .demo-home/
+
+# 세션 간 인계 문서. 저장소에 남길 산출물이 아니라 작업 메모다.
+HANDOFF.md
