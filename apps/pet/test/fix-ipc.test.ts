@@ -161,6 +161,7 @@ describe('applyFix 채널', () => {
   })
 
   // ADR-008 ②: 파일 수정은 반드시 백업 후에 한다. renderer는 이 경로를 되돌리기 근거로 쓴다.
+  // 백업은 원본 옆이 아니라 앱 디렉터리에 모인다 — 사용자의 홈을 어지르지 않는다.
   it('원본을 .bak 파일로 백업하고 그 경로를 돌려준다', async () => {
     const { invoke, runDiagnostics, host, findings } = await register()
     await runDiagnostics()
@@ -168,7 +169,7 @@ describe('applyFix 채널', () => {
     const result = await invoke(CHANNEL.applyFix, editable(findings()).id)
 
     expect(result.backupPath).toBeTruthy()
-    expect(result.backupPath).toContain(`${RC}.bak.`)
+    expect(result.backupPath).toContain(`${HOME}/.nosy/backups/.zshrc.bak.`)
     expect(await host.readFile(result.backupPath as string)).toBe(RC_CONTENT)
   })
 
