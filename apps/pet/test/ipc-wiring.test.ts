@@ -7,7 +7,7 @@ import type { BrowserWindow } from 'electron'
 import { ADAPTERS, FakeHost, selfAdapters } from '@nosy/core'
 import type { Snapshot, SnapshotStore } from '@nosy/core'
 import { CHANNEL } from '../shared/ipc'
-import type { PetSnapshot } from '../shared/ipc'
+import type { PetSnapshot, Placement } from '../shared/ipc'
 
 const mocks = vi.hoisted(() => ({
   exposeInMainWorld: vi.fn(),
@@ -74,13 +74,13 @@ function memoryStore(initial: Snapshot = {}): CountingStore {
 
 interface SentMessage {
   channel: string
-  payload: PetSnapshot
+  payload: PetSnapshot | Placement
 }
 
 function fakeWindow(sent: SentMessage[]) {
   return {
     webContents: {
-      send: (channel: string, payload: PetSnapshot) => sent.push({ channel, payload })
+      send: (channel: string, payload: PetSnapshot | Placement) => sent.push({ channel, payload })
     },
     setIgnoreMouseEvents: vi.fn(),
     getPosition: vi.fn(() => [100, 200]),
@@ -110,7 +110,7 @@ describe('preload 브릿지', () => {
       [
         'applyFix',
         'moveBy',
-        'onShove',
+        'onPlace',
         'onState',
         'platform',
         'revertFix',
@@ -204,6 +204,11 @@ describe('preload 브릿지', () => {
 })
 
 describe('registerIpcHandlers', () => {
+  /** 지금까지 renderer로 나간 배치 메시지만 골라낸다. */
+  function placements(sent: SentMessage[]): Placement[] {
+    return sent.filter((m) => m.channel === CHANNEL.place).map((m) => m.payload as Placement)
+  }
+
   async function register(store: CountingStore = memoryStore()) {
     vi.resetModules()
     const sent: SentMessage[] = []
@@ -246,36 +251,42 @@ describe('registerIpcHandlers', () => {
     expect(registered).not.toContain(CHANNEL.state)
   })
 
-  // setPosition이 아니라 setBounds다. 창 크기까지 콘텐츠와 자리에 맞춰 다시 잡는다
-  // (main/panel-layout.ts placeBounds).
-  it('moveBy는 현재 위치에 델타를 더해 창을 옮긴다 (pet-window FR-001)', async () => {
-    const { window, onHandler } = await register()
+  // 창은 작업 영역 전체에 못박혀 있다(main/window.ts). 드래그가 옮기는 것은 창이 아니라
+  // 창 안에서 펫이 서는 자리이고, 그 자리는 CHANNEL.place로 renderer에 간다.
+  it('moveBy는 델타만큼 펫의 자리를 옮긴다 (pet-window FR-001)', async () => {
+    const { sent, window, onHandler } = await register()
 
     onHandler(CHANNEL.moveBy)?.({}, 12, -5)
 
-    expect(window.setBounds).toHaveBeenCalledWith({ x: 112, y: 195, width: 104, height: 88 })
+    // 창을 건드리면 리사이즈 깜빡임이 되살아난다.
+    expect(window.setBounds).not.toHaveBeenCalled()
+    expect(window.setPosition).not.toHaveBeenCalled()
+
+    // 시작 자리(108,208)에서 델타만큼 간 뒤의 발치. 밀려나지 않았으므로 shove는 0이다.
+    expect(placements(sent).at(-1)).toEqual({ x: 0, y: 0, left: 164, top: 250 })
   })
 
-  // Retina·트랙패드에서 screenX가 소수로 오는데 setBounds는 정수만 받는다.
-  // 소수를 그대로 넘기면 main 프로세스가 통째로 죽는다(실제로 죽었다).
-  it('소수 델타가 들어와도 정수 좌표로 옮긴다', async () => {
-    const { window, onHandler } = await register()
+  // Retina·트랙패드에서 screenX는 소수로 온다. 소수가 그대로 좌표에 남으면 펫이 반 픽셀에
+  // 걸쳐 그려져 도트가 뭉갠다.
+  it('소수 델타가 들어와도 정수 좌표를 보낸다', async () => {
+    const { sent, onHandler } = await register()
 
     onHandler(CHANNEL.moveBy)?.({}, 0.5, -0.5)
 
-    const [bounds] = vi.mocked(window.setBounds).mock.calls[0]
+    const placement = placements(sent).at(-1)
 
-    for (const value of Object.values(bounds)) {
+    expect(placement).toBeDefined()
+    for (const value of Object.values(placement as Placement)) {
       expect(Number.isInteger(value)).toBe(true)
     }
   })
 
   it('숫자가 아닌 델타는 무시한다', async () => {
-    const { window, onHandler } = await register()
+    const { sent, onHandler } = await register()
 
     onHandler(CHANNEL.moveBy)?.({}, Number.NaN, undefined)
 
-    expect(window.setBounds).not.toHaveBeenCalled()
+    expect(placements(sent)).toHaveLength(0)
   })
 
   it('setClickThrough는 창의 setIgnoreMouseEvents로 이어진다 (pet-window FR-002)', async () => {

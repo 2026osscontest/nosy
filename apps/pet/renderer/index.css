@@ -64,19 +64,18 @@ body {
   height: 100%;
 }
 
-/* 펫과 말풍선·패널을 한 덩어리로 묶어 창 아래쪽 가운데에 세운다.
-   나머지 영역은 비어 있고 클릭이 관통된다.
+/* 펫과 말풍선·패널을 한 덩어리로 묶는다. 나머지 영역은 비어 있고 클릭이 관통된다.
 
-   창은 이 덩어리 크기에 맞춰 위로만 늘어난다(main/panel-layout.ts). 펫은 늘 아래에 붙어
-   있으므로 무엇을 펼치든 펫의 화면상 위치가 변하지 않는다. */
+   창은 작업 영역 전체를 덮은 채 크기가 바뀌지 않으므로(main/window.ts), 펫이 화면
+   어디에 있느냐는 창이 아니라 renderer가 인라인으로 받는 left/top이 정한다. 그 좌표는
+   **펫의 발치 한가운데**이고, 덩어리는 거기 매달려 위로 자란다 — 그래서 패널을 펼치고
+   접어도 펫이 선 자리가 흔들리지 않는다 (main/panel-layout.ts petFoot). */
 .pet-interactive {
   /* 펫과 패널 사이의 간격. .pet-gate가 클립 상단을 패널의 아래 가장자리에 맞추는 데
      같은 값을 쓰므로 변수로 둔다. */
   --pet-gap: 10px;
   position: absolute;
-  left: 50%;
-  bottom: 8px;
-  transform: translateX(-50%);
+  transform: translate(-50%, -100%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -223,10 +222,10 @@ body {
   animation: pet-pull var(--travel-time) linear 1;
 }
 
-/* 창이 옮겨 가는 중에는 아무것도 그리지 않는다. 창이 움직이는 시각과 펫의 변형이 걸리는
-   시각이 어긋나 있어서, 그 사이에 그려지면 펫이 보정 전 자리에 한 프레임 찍혔다가 튄다.
-   자리는 그대로 차지해야 한다 — 크기를 재는 중이므로 display로 지우면 안 된다. */
-.pet-interactive[data-settling='true'] {
+/* 아직 main에게서 자리를 못 받은 동안에는 그리지 않는다 — 앱이 막 떴을 때뿐이다.
+   자리는 그대로 차지해야 한다: 크기를 재서 보내야 그 자리가 정해지므로 display로 지우면
+   영영 정해지지 않는다. */
+.pet-interactive[data-unplaced='true'] {
   visibility: hidden;
 }
 

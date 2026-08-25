@@ -15,8 +15,8 @@ import {
 } from '@nosy/core'
 import type { Finding, FixHost, SnapshotStore } from '@nosy/core'
 import { CHANNEL, buildSnapshot, thinkingSnapshot } from '../shared/ipc'
-import type { DiagnosticScope, FixResult, PetSnapshot, Shove } from '../shared/ipc'
-import { INITIAL_HEIGHT, INITIAL_WIDTH, petOrigin, placeBounds } from './panel-layout'
+import type { DiagnosticScope, FixResult, PetSnapshot, Placement } from '../shared/ipc'
+import { INITIAL_HEIGHT, INITIAL_WIDTH, petFoot, petOrigin, placeBounds } from './panel-layout'
 import type { Point } from './panel-layout'
 
 export interface DiagnosticsDeps {
@@ -61,6 +61,11 @@ let latest: PetSnapshot | undefined
 export interface DiagnosticsRunner {
   /** 이미 진단이 돌고 있으면 무시된다. 결과는 언제나 CHANNEL.state로만 도착한다. */
   run(scope: DiagnosticScope): Promise<void>
+  /**
+   * 펫을 작업 영역 한가운데로 되돌린다 (Tray "펫 데려오기", FR-010).
+   * 창은 늘 작업 영역 전체이므로 창을 옮기는 것으로는 펫이 움직이지 않는다 — 옮길 것은 home이다.
+   */
+  recenter(): void
 }
 
 /** IPC 핸들러를 등록한다. 결과는 window.webContents로 밀어넣는다. */
@@ -117,11 +122,15 @@ export function registerIpcHandlers(
    * 닫았을 때 사용자가 놔둔 자리로 돌아온다 (FR-012).
    */
   let home: Point = petOrigin(window.getBounds())
-  /** 직전에 보낸 밀림 방향. 같은 값을 반복해서 보내지 않도록 기억한다. */
-  let lastShove = ''
+  /** 직전에 보낸 배치. 같은 값을 반복해서 보내지 않도록 기억한다. */
+  let lastPlacement = ''
 
   /**
-   * 지금 크기·자리로 창을 놓고, 펫이 home에서 밀려났으면 그 방향을 알린다.
+   * 지금 크기·자리로 콘텐츠를 놓을 자리를 정해 renderer에 알린다.
+   *
+   * **창은 건드리지 않는다.** 창은 작업 영역 전체에 못박혀 있고(main/window.ts), 여기서
+   * 계산한 사각형은 그 창 안에서 콘텐츠를 그릴 자리다. placeBounds의 계산은 창을 놓을
+   * 때와 똑같다 — 달라진 것은 결과를 setBounds에 넣느냐 renderer에 보내느냐뿐이다.
    *
    * 드래그는 초당 수십 번이라 왕복시킬 수 없으므로 push로만 보내고, 값이 실제로 바뀌었을
    * 때만 보낸다.
@@ -131,18 +140,24 @@ export function registerIpcHandlers(
 
     const { workArea } = screen.getDisplayMatching(window.getBounds())
     const bounds = placeBounds(home, content, workArea)
-
-    window.setBounds(bounds)
-
     const actual = petOrigin(bounds)
-    const shove: Shove = { x: actual.x - home.x, y: actual.y - home.y }
-    const key = `${shove.x}|${shove.y}`
+
+    const foot = petFoot(actual)
+    const placement: Placement = {
+      x: actual.x - home.x,
+      y: actual.y - home.y,
+      // 화면 좌표를 창 안의 좌표로 옮긴다. 창이 곧 작업 영역이므로 그 원점만 빼면 된다.
+      left: foot.x - workArea.x,
+      top: foot.y - workArea.y
+    }
+
+    const key = `${placement.x}|${placement.y}|${placement.left}|${placement.top}`
 
     // 크기가 바뀐 뒤에는 값이 그대로여도 반드시 알린다. renderer가 이 답을 받을 때까지
     // 콘텐츠를 감추고 기다리기 때문이다 — 안 보내면 감춘 채로 남는다.
-    if (key === lastShove && !always) return
-    lastShove = key
-    window.webContents.send(CHANNEL.shove, shove)
+    if (key === lastPlacement && !always) return
+    lastPlacement = key
+    window.webContents.send(CHANNEL.place, placement)
   }
 
   ipcMain.on(CHANNEL.setContentSize, (_event, width: number, height: number) => {
@@ -150,14 +165,13 @@ export function registerIpcHandlers(
     // 반올림하지만 숫자가 아닌 값은 여기서 막는다.
     if (!Number.isFinite(width) || !Number.isFinite(height) || height <= 0) return
 
-    // home은 건드리지 않는다. 패널을 여느라 창이 밀렸더라도 닫으면 제자리로 돌아와야 한다.
+    // home은 건드리지 않는다. 패널을 여느라 콘텐츠가 밀렸더라도 닫으면 제자리로 돌아와야 한다.
     content = { width, height }
     place(true)
   })
 
   ipcMain.on(CHANNEL.moveBy, (_event, dx: number, dy: number) => {
-    // setBounds는 정수만 받는다. 소수가 들어가면 main 프로세스가 통째로 죽으므로
-    // renderer가 정수를 보내더라도 여기서 한 번 더 막는다.
+    // 숫자가 아닌 값이 들어오면 home이 NaN으로 오염돼 펫이 영영 사라진다.
     if (!Number.isFinite(dx) || !Number.isFinite(dy)) return
 
     const { workArea } = screen.getDisplayMatching(window.getBounds())
@@ -200,5 +214,18 @@ export function registerIpcHandlers(
     return { ok: true, backupPath: outcome.backupPath }
   })
 
-  return { run }
+  const recenter = (): void => {
+    const { workArea } = screen.getDisplayMatching(window.getBounds())
+
+    // 펫 하나 크기의 상자를 작업 영역 한가운데 놓고, 그 안에서 펫이 설 자리를 집으로 삼는다.
+    home = petOrigin({
+      x: workArea.x + Math.round((workArea.width - INITIAL_WIDTH) / 2),
+      y: workArea.y + Math.round((workArea.height - INITIAL_HEIGHT) / 2),
+      width: INITIAL_WIDTH,
+      height: INITIAL_HEIGHT
+    })
+    place(true)
+  }
+
+  return { run, recenter }
 }

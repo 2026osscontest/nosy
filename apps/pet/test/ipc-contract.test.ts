@@ -47,7 +47,7 @@ describe('CHANNEL', () => {
     expect(Object.keys(CHANNEL).sort()).toEqual(
       [
         'applyFix',
-        'shove',
+        'place',
         'moveBy',
         'revertFix',
         'run',

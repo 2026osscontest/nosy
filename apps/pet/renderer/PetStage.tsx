@@ -6,15 +6,17 @@ import type { CSSProperties } from 'react'
 import { PetView } from './PetView'
 import { Bubble } from './Bubble'
 import { FixPanel } from './FixPanel'
-import type { PetSnapshot, Shove } from '../shared/ipc'
+import type { PetSnapshot, Placement } from '../shared/ipc'
 
 /** 이보다 적게 움직였으면 드래그가 아니라 클릭으로 본다 (pet-window-spec P4). */
 const CLICK_SLOP_PX = 4
 
 /**
- * .pet-interactive를 창 가장자리에서 띄우는 여백. index.css의 bottom과 같은 값이다.
- * 창은 콘텐츠와 같은 크기로 잡히므로, 말풍선·패널의 하드 섀도(4px)가 잘리지 않도록
- * 네 방향 모두에 이만큼을 실어 보낸다.
+ * 콘텐츠 덩어리 둘레의 여백. main이 받는 콘텐츠 크기는 이 여백을 포함한 값이고, main이
+ * 돌려주는 자리(Placement)도 여백을 포함한 사각형의 좌상단이다 — 실제로 그리는
+ * .pet-interactive는 그만큼 안쪽에 놓는다.
+ *
+ * 말풍선·패널의 하드 섀도(4px)가 화면 밖으로 나가지 않도록 네 방향 모두에 실어 보낸다.
  */
 const CONTENT_MARGIN_PX = 8
 
@@ -95,6 +97,13 @@ const NEXT_VIEW: Record<View, View> = {
   closing: 'panel'
 }
 
+// main이 보내는 Placement에서 쓰임이 다른 두 부분을 갈라 쓴다. 계약이 바뀌면 여기도
+// 따라 바뀌도록 파생시킨다.
+/** 펫이 집에서 밀려난 양. */
+type Shove = Pick<Placement, 'x' | 'y'>
+/** 창 안에서 펫이 서 있는 자리(발치 한가운데). */
+type Foot = Pick<Placement, 'left' | 'top'>
+
 interface DragState {
   lastX: number
   lastY: number
@@ -112,19 +121,13 @@ export function PetStage({ snapshot }: PetStageProps) {
   const [shove, setShove] = useState<Shove | null>(null)
   // 패널을 접는 동안 펫이 제자리로 끌려가는 구간.
   const [retreat, setRetreat] = useState<Shove | null>(null)
+  /**
+   * 창 안에서 펫이 서 있는 자리. 창은 작업 영역 전체에 못박혀 있으므로(main/window.ts),
+   * 펫이 화면 어디에 있느냐는 창이 아니라 이 값 하나가 정한다.
+   */
+  const [foot, setFoot] = useState<Foot | null>(null)
   /** 펫이 지금 자기 자리에서 얼마나 벗어나 있는지. 되돌아갈 거리이자 방향이다. */
   const displaced = useRef<Shove>({ x: 0, y: 0 })
-  /**
-   * 창이 옮겨 가는 중이라 아직 아무것도 그리면 안 되는 구간.
-   *
-   * 크기를 보낸 뒤 창이 실제로 옮겨지고, 얼마나 밀렸는지 답이 돌아올 때까지는 세 단계가
-   * 걸린다. 그 사이에 화면이 그려지면 펫이 보정 전 자리에 찍혔다가 튀어 오른다 —
-   * 열 때는 최종 위치에 먼저 찍히고, 닫을 때는 되돌아가기 변형이 남아 제자리보다
-   * 위에 찍힌다. 그래서 답이 올 때까지 통째로 감춘다.
-   */
-  const [settling, setSettling] = useState(false)
-  const settleTimer = useRef(0)
-  const settleFrame = useRef(0)
   const [dragging, setDragging] = useState(false)
   const drag = useRef<DragState | null>(null)
   const interactive = useRef<HTMLDivElement>(null)
@@ -144,39 +147,28 @@ export function PetStage({ snapshot }: PetStageProps) {
 
   useEffect(
     () =>
-      window.nosy.onShove((next) => {
-        displaced.current = next
-        window.clearTimeout(settleTimer.current)
-        window.cancelAnimationFrame(settleFrame.current)
-
-        // 이 회신은 main이 setBounds를 부른 직후에 온다. 그 시점에 OS는 아직 창을 다
-        // 옮기지 않았다 — macOS는 투명·프레임 없는 창의 원점과 크기를 한 프레임에 함께
-        // 반영하지 못해서, 새 원점에 옛 크기(또는 그 반대)로 한 프레임이 그려진다.
-        // 펫은 창 하단 가운데에 붙어 있으므로 그 한 프레임에 엉뚱한 자리로 튄다.
+      window.nosy.onPlace((next) => {
+        displaced.current = { x: next.x, y: next.y }
+        // 곧바로 반영한다. 드래그는 이 값이 갱신되는 속도가 그대로 펫이 커서를 따라오는
+        // 속도다 — 한 프레임이라도 미루면 끌려오는 것이 늦어 보인다.
         //
-        // 그래서 회신을 받고도 한 프레임을 더 기다린다. 보이기·변형·애니메이션 시작을
-        // 모두 그때 한꺼번에 한다.
-        settleFrame.current = window.requestAnimationFrame(() => {
-          setSettling(false)
+        // 예전에는 여기서 한 프레임을 기다리고 그동안 화면을 통째로 감췄다. 창을 콘텐츠
+        // 크기로 다시 잡던 시절, 창이 옮겨지는 것과 renderer가 그것을 아는 것 사이의
+        // 시차 때문에 펫이 보정 전 자리에 찍혔다 튀었기 때문이다. 창은 이제 움직이지도
+        // 커지지도 않고 펫의 자리는 콘텐츠 크기와 무관하므로(petFoot), 기다릴 것도
+        // 감출 것도 없다 — 감추는 그 구간이 여닫을 때 보이던 깜빡임이었다.
+        setFoot({ left: next.left, top: next.top })
 
-          if (next.x === 0 && next.y === 0) {
-            setRetreat(null)
-            setShove(null)
-            return
-          }
+        if (next.x === 0 && next.y === 0) {
+          setRetreat(null)
+          setShove(null)
+          return
+        }
 
-          setShove(next)
-        })
+        setShove({ x: next.x, y: next.y })
       }),
     []
   )
-
-  // 패널이 붙거나 떨어지는 순간부터 감춘다. ResizeObserver 콜백까지 기다리면 그 전에 이미
-  // 한 프레임이 그려진다 — 창은 아직 옛 크기인데 콘텐츠만 새 크기인 프레임이다.
-  // 'closing'은 제외한다. 그 구간은 창이 그대로이고, 오히려 되돌아가는 몸짓을 보여야 한다.
-  useLayoutEffect(() => {
-    if (view !== 'closing') setSettling(true)
-  }, [view])
 
   // 접기 시작. 되돌아갈 거리는 지금 벗어나 있는 만큼이다.
   useEffect(() => {
@@ -220,16 +212,10 @@ export function PetStage({ snapshot }: PetStageProps) {
       const width = element.offsetWidth + CONTENT_MARGIN_PX * 2
       const height = element.offsetHeight + CONTENT_MARGIN_PX * 2
 
-      // 같은 크기를 다시 보내면 setBounds → 리렌더 → 관측이 되풀이될 수 있다.
+      // 같은 크기를 다시 보내면 배치 → 리렌더 → 관측이 되풀이될 수 있다.
       const key = `${width}x${height}`
       if (key === lastSize.current) return
       lastSize.current = key
-
-      // 답이 올 때까지 감춘다. 크기가 그대로여도 main이 반드시 답을 보내지만, 그 경로가
-      // 끊겨도 화면이 영영 비지 않도록 시간 제한을 함께 건다.
-      setSettling(true)
-      window.clearTimeout(settleTimer.current)
-      settleTimer.current = window.setTimeout(() => setSettling(false), 250)
 
       window.nosy.setContentSize(width, height)
     }
@@ -239,11 +225,7 @@ export function PetStage({ snapshot }: PetStageProps) {
     const observer = new ResizeObserver(sync)
     observer.observe(element)
 
-    return () => {
-      observer.disconnect()
-      window.clearTimeout(settleTimer.current)
-      window.cancelAnimationFrame(settleFrame.current)
-    }
+    return () => observer.disconnect()
   }, [])
 
   // UI_GUIDE "캐릭터 상태 4종": alarmed는 말풍선을 자동으로 띄운다.
@@ -329,7 +311,11 @@ export function PetStage({ snapshot }: PetStageProps) {
         ref={interactive}
         className="pet-interactive"
         data-closing={view === 'closing'}
-        data-settling={settling}
+        // 아직 자리를 못 받았으면 그릴 수 없다. 0,0에 한 번 찍혔다가 제자리로 튀는 것을 막는다.
+        data-unplaced={foot === null}
+        // 창은 작업 영역 전체에 고정이므로 펫의 화면상 자리는 이 두 값이 전부 정한다.
+        // 펫의 발치에 매달아 위로 자라게 한다 (index.css .pet-interactive).
+        style={{ left: `${foot?.left ?? 0}px`, top: `${foot?.top ?? 0}px` }}
         onPointerEnter={(event) => {
           // 버튼을 누르지 않은 채 들어왔는데 드래그 상태가 남아 있다면 지난 드래그의 잔재다.
           if (event.buttons === 0) drag.current = null

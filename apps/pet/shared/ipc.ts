@@ -17,19 +17,34 @@ export const CHANNEL = {
   moveBy: 'nosy:move-by',
   setContentSize: 'nosy:set-content-size',
   state: 'nosy:state',
-  shove: 'nosy:shove'
+  place: 'nosy:place'
 } as const
 
 /**
- * 펫이 자기 자리(home)에서 밀려난 양. 패널이 화면 밖으로 나갈 자리면 창이 통째로 안쪽으로
- * 밀리는데(main/panel-layout.ts placeBounds), 그때 펫도 함께 움직인 거리다.
+ * 지금 콘텐츠를 어디에 그릴지, 그 자리가 펫의 집에서 얼마나 밀려난 자리인지.
  *
- * 부호가 곧 밀려난 방향이다 — renderer는 그 방향으로 튕기는 몸짓을 재생한다.
- * 밀리지 않았으면 둘 다 0이다.
+ * 창은 작업 영역 전체를 덮은 채 크기가 절대 바뀌지 않는다(main/window.ts). 무엇을 펼치고
+ * 접든 움직이는 것은 창이 아니라 창 **안에서** 콘텐츠를 놓는 자리다 — macOS는 투명 창의
+ * 크기를 바꿀 때마다 그리는 표면을 새로 잡느라 한 프레임을 비우는데, 그것이 여닫을 때마다
+ * 보이는 깜빡임이었다.
  */
-export interface Shove {
+export interface Placement {
+  /**
+   * 펫이 자기 자리(home)에서 밀려난 양. 패널이 화면 밖으로 나갈 자리면 콘텐츠 덩어리가
+   * 통째로 안쪽으로 밀리는데(main/panel-layout.ts placeBounds), 그때 펫이 함께 움직인 거리다.
+   *
+   * 부호가 곧 밀려난 방향이다 — renderer는 그 방향으로 튕기는 몸짓을 재생한다.
+   * 밀리지 않았으면 둘 다 0이다.
+   */
   x: number
   y: number
+  /**
+   * 작업 영역(=창) 왼쪽 위를 원점으로 한, **펫의 발치 한가운데**. renderer는 콘텐츠
+   * 덩어리를 이 점에 매달아 그린다 — 덩어리는 펫 위로 자라므로, 이 점만 고정하면 패널을
+   * 펼치고 접어도 펫이 선 자리가 흔들리지 않는다 (main/panel-layout.ts petFoot).
+   */
+  left: number
+  top: number
 }
 
 /** 'self': 30분 주기 체크(자체형 어댑터만), 'all': 전체 (drift-detection-spec FR-006). */
@@ -116,17 +131,17 @@ export interface NosyApi {
   platform: string
   run(scope: DiagnosticScope): void
   setClickThrough(ignore: boolean): void
-  /** 창을 화면 좌표 기준으로 dx·dy만큼 옮긴다 (드래그, pet-window-spec FR-001). */
+  /** 펫의 자리를 dx·dy만큼 옮긴다 (드래그, pet-window-spec FR-001). 창은 움직이지 않는다. */
   moveBy(dx: number, dy: number): void
   /**
-   * 지금 그려야 할 콘텐츠 크기를 알린다. 창은 콘텐츠와 같은 크기로 잡히므로, 무엇을 펼치든
-   * 이 값 하나로 창이 결정된다.
+   * 지금 그려야 할 콘텐츠 크기를 알린다. 창 크기는 이것으로 바뀌지 않는다 — 이 값은 콘텐츠가
+   * 화면 밖으로 나가지 않게 놓을 자리를 계산하는 데만 쓰인다.
    *
-   * 응답을 기다리지 않는다 — 결과(펫이 얼마나 밀려났는지)는 언제나 `onShove`로 도착한다.
+   * 응답을 기다리지 않는다 — 결과는 언제나 `onPlace`로 도착한다.
    */
   setContentSize(width: number, height: number): void
-  /** 펫이 자기 자리에서 밀려날 때마다 불린다. 반환값은 구독 해제 함수다. */
-  onShove(handler: (shove: Shove) => void): () => void
+  /** 콘텐츠를 놓을 자리가 정해질 때마다 불린다. 반환값은 구독 해제 함수다. */
+  onPlace(handler: (placement: Placement) => void): () => void
   applyFix(findingId: string): Promise<FixResult>
   revertFix(findingId: string): Promise<FixResult>
   /** 반환값은 구독 해제 함수 — React useEffect의 정리 함수로 그대로 쓴다. */

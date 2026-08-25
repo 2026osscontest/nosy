@@ -61,7 +61,7 @@ function fakeWindow() {
 }
 
 function fakeRunner(): DiagnosticsRunner {
-  return { run: vi.fn(async () => {}) }
+  return { run: vi.fn(async () => {}), recenter: vi.fn() }
 }
 
 /** 가장 최근에 만들어진 메뉴 템플릿 — 토글로 다시 그려질 때마다 갱신된다. */
@@ -128,13 +128,13 @@ describe('createTray', () => {
     ])
   })
 
-  // 드래그는 화면 밖으로 나가는 것을 막지 않는다. 완전히 나가 버리면 끌어올 수단이 없다.
-  it("'펫 데려오기'는 창을 화면 가운데로 되돌린다", async () => {
-    const { window } = await setup()
+  // 창은 늘 작업 영역 전체라 옮길 것이 없다. 되돌리는 것은 펫의 집이다.
+  it("'펫 데려오기'는 펫을 화면 가운데로 되돌린다", async () => {
+    const { window, runner } = await setup()
 
     click('펫 데려오기')
 
-    expect(window.center).toHaveBeenCalled()
+    expect(runner.recenter).toHaveBeenCalled()
     expect(window.show).toHaveBeenCalled()
   })
 

@@ -66,6 +66,18 @@ export function placeBounds(home: Point, content: Size, workArea: Rect): Rect {
   }
 }
 
+/**
+ * 펫의 발치 한가운데. renderer는 콘텐츠 덩어리를 이 점에 매달아 그린다.
+ *
+ * 좌상단이 아니라 발치를 쓰는 이유가 있다. 콘텐츠는 펫 위로 자라므로, 좌상단을 기준으로
+ * 놓으면 패널이 열려 덩어리가 커질 때 펫이 아래로 밀려 내려간다 — 그 자리를 바로잡는
+ * 새 좌표가 IPC로 돌아올 때까지 한 프레임이 어긋난다. 발치를 기준으로 두면 덩어리가
+ * 무엇이든 펫이 선 자리는 변하지 않는다.
+ */
+export function petFoot(origin: Point): Point {
+  return { x: origin.x + PET_WIDTH_PX / 2, y: origin.y + PET_HEIGHT_PX }
+}
+
 /** 창 안에서 펫이 실제로 놓인 자리. placeBounds의 역함수다. */
 export function petOrigin(bounds: Rect): Point {
   return {

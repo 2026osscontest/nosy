@@ -6,7 +6,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import { CHANNEL } from '../shared/ipc'
 import type {
-  Shove,
+  Placement,
   DiagnosticScope,
   FixResult,
   NosyApi,
@@ -28,11 +28,11 @@ const api: NosyApi = {
     ipcRenderer.send(CHANNEL.setContentSize, width, height),
 
   /** 구독 해제 함수를 반환한다 — onState와 같은 규약이다. */
-  onShove: (handler: (shove: Shove) => void): (() => void) => {
-    const listener = (_event: IpcRendererEvent, shove: Shove): void => handler(shove)
+  onPlace: (handler: (placement: Placement) => void): (() => void) => {
+    const listener = (_event: IpcRendererEvent, placement: Placement): void => handler(placement)
 
-    ipcRenderer.on(CHANNEL.shove, listener)
-    return () => ipcRenderer.removeListener(CHANNEL.shove, listener)
+    ipcRenderer.on(CHANNEL.place, listener)
+    return () => ipcRenderer.removeListener(CHANNEL.place, listener)
   },
 
   applyFix: (findingId: string): Promise<FixResult> =>

@@ -30,12 +30,13 @@ export function createTray(window: BrowserWindow, runner: DiagnosticsRunner): Tr
     tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: '지금 진단하기', click: () => void runner.run('all') },
-        // 드래그는 펫을 화면 안에 가둔다(main/panel-layout.ts placeBounds). 그래도 디스플레이를
-        // 뽑거나 해상도가 바뀌면 창이 없어진 화면에 남을 수 있어, 되찾을 수단을 남겨 둔다.
+        // 콘텐츠는 늘 작업 영역 안으로 밀린다(main/panel-layout.ts placeBounds). 그래도
+        // 해상도가 바뀌면 펫의 집이 없어진 자리에 남을 수 있어, 되찾을 수단을 남겨 둔다.
+        // 창은 화면 전체라 옮길 것이 없다 — 되돌리는 것은 펫의 집이다.
         {
           label: '펫 데려오기',
           click: () => {
-            window.center()
+            runner.recenter()
             window.show()
             render()
           }
