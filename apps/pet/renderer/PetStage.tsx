@@ -10,13 +10,16 @@ import type { PetSnapshot } from '../shared/ipc'
 /** 이보다 적게 움직였으면 드래그가 아니라 클릭으로 본다 (pet-window-spec P4). */
 const CLICK_SLOP_PX = 4
 
-/**
- * 펫을 누를 때마다 도는 3단계 (docs/UI_GUIDE.md "상호작용":
- * 클릭 → 말풍선 요약 → 재클릭 → 상세 패널 확장).
- */
 type View = 'closed' | 'bubble' | 'panel'
 
-const NEXT_VIEW: Record<View, View> = { closed: 'bubble', bubble: 'panel', panel: 'closed' }
+/**
+ * 펫을 누르면 바로 상세 패널이 열린다 (docs/UI_GUIDE.md "인터랙션 흐름").
+ * 말풍선을 거치지 않는다 — 펫을 누른다는 건 이미 상세를 보겠다는 뜻이고, 문제가 0건일 때는
+ * 말풍선과 패널의 내용이 사실상 같아 한 단계가 통째로 군더더기가 된다.
+ *
+ * 말풍선은 alarmed일 때 펫이 스스로 띄우는 연출로만 남는다. 그 상태에서 누르면 패널로 확장된다.
+ */
+const NEXT_VIEW: Record<View, View> = { closed: 'panel', bubble: 'panel', panel: 'closed' }
 
 interface DragState {
   lastX: number
