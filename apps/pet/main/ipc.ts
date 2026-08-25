@@ -15,8 +15,8 @@ import {
 } from '@nosy/core'
 import type { Finding, FixHost, SnapshotStore } from '@nosy/core'
 import { CHANNEL, buildSnapshot, thinkingSnapshot } from '../shared/ipc'
-import type { DiagnosticScope, FixResult, PanelPlacement, PetSnapshot } from '../shared/ipc'
-import { clampY, nextBounds } from './panel-layout'
+import type { ClipState, DiagnosticScope, FixResult, PetSnapshot } from '../shared/ipc'
+import { INITIAL_HEIGHT, clipOf, fitBounds } from './panel-layout'
 
 export interface DiagnosticsDeps {
   /**
@@ -109,26 +109,40 @@ export function registerIpcHandlers(
     window.setIgnoreMouseEvents(ignore, { forward: true })
   })
 
+  /** renderer가 마지막으로 알려준 콘텐츠 크기. 잘림 판정에 계속 쓰인다. */
+  let content = { width: 0, height: INITIAL_HEIGHT }
+  /** 직전에 보낸 잘림 상태. 드래그 중 같은 값을 반복해서 보내지 않도록 기억한다. */
+  let lastClip = ''
+
   /**
-   * 펼칠 방향은 화면 경계를 봐야 정해지므로 renderer가 결정할 수 없다. 창을 콘텐츠 높이에
-   * 맞추고 어느 쪽으로 펼쳤는지 알려준다 — renderer는 그 방향에 맞춰 펫과 말풍선·패널의
-   * 위아래 순서를 뒤집는다.
+   * 무엇이 잘렸는지 알린다. 드래그는 초당 수십 번이라 왕복시킬 수 없으므로 push로만 보내고,
+   * 값이 실제로 바뀌었을 때만 보낸다.
    */
-  let placement: PanelPlacement = 'above'
+  const pushClip = (): void => {
+    if (window.isDestroyed()) return
 
-  ipcMain.handle(CHANNEL.setContentHeight, (_event, height: number): PanelPlacement => {
-    // 소수나 NaN이 setBounds에 닿으면 main 프로세스가 통째로 죽는다. nextBounds가 반올림하지만
+    const bounds = window.getBounds()
+    const { workArea } = screen.getDisplayMatching(bounds)
+    const clip: ClipState = clipOf(bounds, content.width, content.height, workArea)
+    const key = `${clip.top}|${clip.left}|${clip.right}`
+
+    if (key === lastClip) return
+    lastClip = key
+    window.webContents.send(CHANNEL.clip, clip)
+  }
+
+  ipcMain.on(CHANNEL.setContentSize, (_event, width: number, height: number) => {
+    // 소수나 NaN이 setBounds에 닿으면 main 프로세스가 통째로 죽는다. fitBounds가 반올림하지만
     // 숫자가 아닌 값은 여기서 막는다.
-    if (!Number.isFinite(height) || height <= 0) return placement
+    if (!Number.isFinite(width) || !Number.isFinite(height) || height <= 0) return
 
-    const current = window.getBounds()
-    const { workArea } = screen.getDisplayMatching(current)
-    const next = nextBounds(current, placement, height, workArea)
+    content = { width, height }
 
-    placement = next.placement
-    window.setBounds(next.bounds)
+    const bounds = window.getBounds()
+    const { workArea } = screen.getDisplayMatching(bounds)
 
-    return placement
+    window.setBounds(fitBounds(bounds, height, workArea))
+    pushClip()
   })
 
   ipcMain.on(CHANNEL.moveBy, (_event, dx: number, dy: number) => {
@@ -136,13 +150,12 @@ export function registerIpcHandlers(
     // renderer가 정수를 보내더라도 여기서 한 번 더 막는다.
     if (!Number.isFinite(dx) || !Number.isFinite(dy)) return
 
-    const bounds = window.getBounds()
-    const moved = { ...bounds, x: bounds.x + dx, y: bounds.y + dy }
-    const { workArea } = screen.getDisplayMatching(bounds)
+    const [x, y] = window.getPosition()
 
-    // 위쪽은 macOS가 알아서 막는다. 아래쪽은 막지 않아 그대로 두면 펫이 화면 밖으로 나가
-    // 사라지므로 여기서 가둔다 — 한쪽만 막히면 드래그가 비대칭으로 느껴진다.
-    window.setPosition(Math.round(moved.x), clampY(moved, workArea))
+    // 화면 밖으로 나가는 것을 막지 않는다. 대신 무엇이 잘렸는지 알려 사용자가 끌어올 수
+    // 있게 한다 — 되찾을 수 없게 된 경우의 마지막 수단은 Tray의 "펫 데려오기"다.
+    window.setPosition(Math.round(x + dx), Math.round(y + dy))
+    pushClip()
   })
 
   ipcMain.handle(CHANNEL.applyFix, async (_event, findingId: string): Promise<FixResult> => {

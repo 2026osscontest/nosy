@@ -6,10 +6,10 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import { CHANNEL } from '../shared/ipc'
 import type {
+  ClipState,
   DiagnosticScope,
   FixResult,
   NosyApi,
-  PanelPlacement,
   PetSnapshot
 } from '../shared/ipc'
 
@@ -24,8 +24,16 @@ const api: NosyApi = {
 
   moveBy: (dx: number, dy: number): void => ipcRenderer.send(CHANNEL.moveBy, dx, dy),
 
-  setContentHeight: (height: number): Promise<PanelPlacement> =>
-    ipcRenderer.invoke(CHANNEL.setContentHeight, height),
+  setContentSize: (width: number, height: number): void =>
+    ipcRenderer.send(CHANNEL.setContentSize, width, height),
+
+  /** 구독 해제 함수를 반환한다 — onState와 같은 규약이다. */
+  onClip: (handler: (clip: ClipState) => void): (() => void) => {
+    const listener = (_event: IpcRendererEvent, clip: ClipState): void => handler(clip)
+
+    ipcRenderer.on(CHANNEL.clip, listener)
+    return () => ipcRenderer.removeListener(CHANNEL.clip, listener)
+  },
 
   applyFix: (findingId: string): Promise<FixResult> =>
     ipcRenderer.invoke(CHANNEL.applyFix, findingId),

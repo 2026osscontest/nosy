@@ -30,6 +30,16 @@ export function createTray(window: BrowserWindow, runner: DiagnosticsRunner): Tr
     tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: '지금 진단하기', click: () => void runner.run('all') },
+        // 드래그는 화면 밖으로 나가는 것을 막지 않는다(무엇이 잘렸는지 힌트로 알린다).
+        // 펫이 완전히 나가 버리면 끌어올 수단이 없으므로 여기서 되찾는다.
+        {
+          label: '펫 데려오기',
+          click: () => {
+            window.center()
+            window.show()
+            render()
+          }
+        },
         {
           label: window.isVisible() ? '펫 숨기기' : '펫 보이기',
           click: () => {

@@ -82,6 +82,7 @@ function fakeWindow(sent: SentMessage[]) {
       send: (channel: string, payload: PetSnapshot) => sent.push({ channel, payload })
     },
     setIgnoreMouseEvents: vi.fn(),
+    getPosition: vi.fn(() => [100, 200]),
     getBounds: vi.fn(() => ({ x: 100, y: 200, width: 380, height: 88 })),
     setBounds: vi.fn(),
     setPosition: vi.fn(),
@@ -101,19 +102,20 @@ describe('preload 브릿지', () => {
     expect(key).toBe('nosy')
   })
 
-  it('약속한 8개 항목을 노출한다', async () => {
+  it('약속한 9개 항목을 노출한다', async () => {
     const { api } = await loadBridge()
 
     expect(Object.keys(api).sort()).toEqual(
       [
         'applyFix',
         'moveBy',
+        'onClip',
         'onState',
         'platform',
         'revertFix',
         'run',
         'setClickThrough',
-        'setContentHeight'
+        'setContentSize'
       ].sort()
     )
   })

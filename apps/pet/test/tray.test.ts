@@ -55,7 +55,8 @@ function fakeWindow() {
     }),
     show: vi.fn(() => {
       visible = true
-    })
+    }),
+    center: vi.fn()
   } as unknown as BrowserWindow
 }
 
@@ -111,14 +112,30 @@ describe('createTray', () => {
     )
   })
 
-  it('FR-010이 요구한 메뉴 4종을 제공한다', async () => {
+  it('FR-010이 요구한 메뉴 4종에 펫 데려오기를 더해 제공한다', async () => {
     await setup()
 
     const labels = currentMenu()
       .map((item) => item.label)
       .filter(Boolean)
 
-    expect(labels).toEqual(['지금 진단하기', '펫 숨기기', '로그인 시 자동 시작', '종료'])
+    expect(labels).toEqual([
+      '지금 진단하기',
+      '펫 데려오기',
+      '펫 숨기기',
+      '로그인 시 자동 시작',
+      '종료'
+    ])
+  })
+
+  // 드래그는 화면 밖으로 나가는 것을 막지 않는다. 완전히 나가 버리면 끌어올 수단이 없다.
+  it("'펫 데려오기'는 창을 화면 가운데로 되돌린다", async () => {
+    const { window } = await setup()
+
+    click('펫 데려오기')
+
+    expect(window.center).toHaveBeenCalled()
+    expect(window.show).toHaveBeenCalled()
   })
 
   it("'지금 진단하기'는 전체 스코프로 진단을 돌린다", async () => {

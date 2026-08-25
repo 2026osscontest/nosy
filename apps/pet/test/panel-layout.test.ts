@@ -1,28 +1,25 @@
-// 창을 어느 쪽으로 펼칠지와 그때의 창 사각형.
+// 창 높이를 콘텐츠에 맞추는 계산.
 //
-// 창 높이를 콘텐츠보다 크게 잡으면 그 여유분이 곧 드래그 상한선이 된다 — 펫은 창 하단에
-// 붙어 있고, macOS는 보이는 창의 top을 작업 영역 아래로 강제하기 때문이다(실측: 요청한 y가
-// 무엇이든 실제 y는 workArea.y). 그래서 창은 renderer가 잰 콘텐츠 높이에 딱 맞춘다.
-// 위로 펼칠 자리가 없으면 아래로 펼치고 펫을 창 위쪽에 붙인다.
-//
-// 어느 방향으로 펼치든 펫의 화면상 위치는 변하지 않아야 한다. 사용자가 끌어다 놓은 자리다.
+// macOS는 보이는 창의 top을 작업 영역 아래로 강제한다(실측: 요청 y와 무관하게 workArea.y).
+// 원하는 높이를 그대로 잡으면 위로 올릴 자리가 모자란 창을 OS가 아래로 밀어내고, 펫은 창
+// 하단에 붙어 있으므로 화면에서 그만큼 점프한다. 그래서 위로 쓸 수 있는 만큼만 잡는다.
 
 import { describe, expect, it } from 'vitest'
-import { INITIAL_HEIGHT, clampY, nextBounds, petScreenY } from '../main/panel-layout'
+import { INITIAL_HEIGHT, clipOf, fitBounds } from '../main/panel-layout'
 import type { Rect } from '../main/panel-layout'
 
-/** 넉넉한 화면. 위아래 어느 쪽으로도 펼칠 수 있다. */
-const ROOMY: Rect = { x: 0, y: 25, width: 1440, height: 875 }
+/** 메뉴바 아래로 시작하는 작업 영역. */
+const WORK_AREA: Rect = { x: 0, y: 30, width: 1440, height: 870 }
 
-/** 말풍선 하나 정도. */
-const BUBBLE_HEIGHT = 220
-/** 상세 패널까지. */
 const PANEL_HEIGHT = 560
 
-/** 펫만 떠 있는 창. 기본 배치는 펫이 창 하단에 붙는 'above'다. */
+/** 펫만 떠 있는 창. */
 function petOnly(y: number): Rect {
   return { x: 500, y, width: 380, height: INITIAL_HEIGHT }
 }
+
+/** 창 아래쪽 변 — 펫이 붙어 있는 쪽이다. 이 값이 곧 펫의 화면 위치를 결정한다. */
+const bottomOf = (rect: Rect): number => rect.y + rect.height
 
 describe('INITIAL_HEIGHT', () => {
   // 이 값이 펫보다 크면 그 차이가 그대로 드래그 상한선이 된다.
@@ -31,114 +28,88 @@ describe('INITIAL_HEIGHT', () => {
   })
 })
 
-describe('nextBounds', () => {
+describe('fitBounds', () => {
   describe('위쪽에 자리가 있을 때', () => {
-    it('위로 펼치고 펫을 창 하단에 그대로 둔다', () => {
+    it('원하는 높이를 그대로 잡는다', () => {
+      expect(fitBounds(petOnly(600), PANEL_HEIGHT, WORK_AREA).height).toBe(PANEL_HEIGHT)
+    })
+
+    // 펫은 창 하단에 붙어 있다. 아래쪽 변이 그대로면 펫도 그대로다.
+    it('창 아래쪽 변을 고정한 채 위로만 늘린다', () => {
       const current = petOnly(600)
-      const before = petScreenY(current, 'above')
 
-      const next = nextBounds(current, 'above', PANEL_HEIGHT, ROOMY)
+      const next = fitBounds(current, PANEL_HEIGHT, WORK_AREA)
 
-      expect(next.placement).toBe('above')
-      expect(next.bounds.height).toBe(PANEL_HEIGHT)
-      expect(petScreenY(next.bounds, next.placement)).toBe(before)
+      expect(bottomOf(next)).toBe(bottomOf(current))
     })
 
-    it('말풍선만 한 높이도 같은 방식으로 잡는다', () => {
-      const current = petOnly(600)
-      const before = petScreenY(current, 'above')
+    it('접을 때도 아래쪽 변이 그대로다', () => {
+      const opened = fitBounds(petOnly(600), PANEL_HEIGHT, WORK_AREA)
 
-      const next = nextBounds(current, 'above', BUBBLE_HEIGHT, ROOMY)
+      const shut = fitBounds(opened, INITIAL_HEIGHT, WORK_AREA)
 
-      expect(next.bounds.height).toBe(BUBBLE_HEIGHT)
-      expect(petScreenY(next.bounds, next.placement)).toBe(before)
-    })
-  })
-
-  describe('위쪽에 자리가 없을 때', () => {
-    // 펫을 화면 꼭대기 근처로 끌어 놓은 경우. 위로 펼치면 화면 밖으로 나간다.
-    it('아래로 펼친다', () => {
-      const next = nextBounds(petOnly(30), 'above', PANEL_HEIGHT, ROOMY)
-
-      expect(next.placement).toBe('below')
-      expect(next.bounds.height).toBe(PANEL_HEIGHT)
-    })
-
-    // 말풍선도 같아야 한다. 말풍선만 위로 고집하면 경고가 뜨는 순간 화면 밖으로 나간다.
-    it('말풍선도 아래로 펼친다', () => {
-      const next = nextBounds(petOnly(30), 'above', BUBBLE_HEIGHT, ROOMY)
-
-      expect(next.placement).toBe('below')
-    })
-
-    it('아래로 펼쳐도 펫의 화면 위치는 그대로다', () => {
-      const current = petOnly(30)
-      const before = petScreenY(current, 'above')
-
-      const next = nextBounds(current, 'above', PANEL_HEIGHT, ROOMY)
-
-      expect(petScreenY(next.bounds, next.placement)).toBe(before)
-    })
-
-    it('창이 작업 영역 위로 삐져나가지 않는다', () => {
-      const next = nextBounds(petOnly(30), 'above', PANEL_HEIGHT, ROOMY)
-
-      expect(next.bounds.y).toBeGreaterThanOrEqual(ROOMY.y)
-    })
-  })
-
-  describe('접을 때', () => {
-    it('펫 크기로 돌아가고 펫은 제자리다', () => {
-      const opened = nextBounds(petOnly(600), 'above', PANEL_HEIGHT, ROOMY)
-      const before = petScreenY(opened.bounds, opened.placement)
-
-      const next = nextBounds(opened.bounds, opened.placement, INITIAL_HEIGHT, ROOMY)
-
-      expect(next.bounds.height).toBe(INITIAL_HEIGHT)
-      expect(petScreenY(next.bounds, next.placement)).toBe(before)
-    })
-
-    // 아래로 펼쳤다 접는 경로. 이때 펫은 창 위쪽에 붙어 있다.
-    it('아래로 펼쳤던 창을 접어도 펫은 제자리다', () => {
-      const opened = nextBounds(petOnly(30), 'above', PANEL_HEIGHT, ROOMY)
-      expect(opened.placement).toBe('below')
-      const before = petScreenY(opened.bounds, opened.placement)
-
-      const next = nextBounds(opened.bounds, opened.placement, INITIAL_HEIGHT, ROOMY)
-
-      expect(petScreenY(next.bounds, next.placement)).toBe(before)
+      expect(shut.height).toBe(INITIAL_HEIGHT)
+      expect(bottomOf(shut)).toBe(bottomOf(opened))
     })
 
     it('펼치고 접기를 반복해도 펫이 밀려나지 않는다', () => {
       let rect = petOnly(600)
-      let place: 'above' | 'below' = 'above'
-      const origin = petScreenY(rect, place)
+      const origin = bottomOf(rect)
 
       for (let i = 0; i < 5; i += 1) {
-        const opened = nextBounds(rect, place, PANEL_HEIGHT, ROOMY)
-        rect = opened.bounds
-        place = opened.placement
-
-        const shut = nextBounds(rect, place, INITIAL_HEIGHT, ROOMY)
-        rect = shut.bounds
-        place = shut.placement
+        rect = fitBounds(rect, PANEL_HEIGHT, WORK_AREA)
+        rect = fitBounds(rect, INITIAL_HEIGHT, WORK_AREA)
       }
 
-      expect(petScreenY(rect, place)).toBe(origin)
+      expect(bottomOf(rect)).toBe(origin)
     })
+  })
+
+  describe('위쪽에 자리가 없을 때', () => {
+    // 펫을 화면 꼭대기 근처로 끌어 놓은 경우.
+    const nearTop = petOnly(WORK_AREA.y)
+
+    it('작업 영역 위로 넘치게 잡지 않는다', () => {
+      const next = fitBounds(nearTop, PANEL_HEIGHT, WORK_AREA)
+
+      expect(next.y).toBeGreaterThanOrEqual(WORK_AREA.y)
+      expect(next.height).toBeLessThan(PANEL_HEIGHT)
+    })
+
+    // 이것이 이 함수의 존재 이유다. 원하는 높이를 그대로 잡으면 OS가 창을 아래로 밀어낸다.
+    it('그래도 펫은 제자리다', () => {
+      const next = fitBounds(nearTop, PANEL_HEIGHT, WORK_AREA)
+
+      expect(bottomOf(next)).toBe(bottomOf(nearTop))
+    })
+
+    it('잘린 높이를 돌려주어 호출자가 잘림을 알 수 있다', () => {
+      const next = fitBounds(nearTop, PANEL_HEIGHT, WORK_AREA)
+
+      expect(next.height).toBe(INITIAL_HEIGHT)
+    })
+  })
+
+  // 펫을 화면 아래로 끌어 내보내는 것은 막지 않는다. 그 상태에서도 계산이 무너지면 안 된다.
+  it('창이 작업 영역 아래로 나가 있어도 원하는 높이를 잡는다', () => {
+    const belowScreen = petOnly(WORK_AREA.y + WORK_AREA.height + 200)
+
+    const next = fitBounds(belowScreen, PANEL_HEIGHT, WORK_AREA)
+
+    expect(next.height).toBe(PANEL_HEIGHT)
+    expect(bottomOf(next)).toBe(bottomOf(belowScreen))
+  })
+
+  it('펫 하나보다 작게 잡지 않는다', () => {
+    expect(fitBounds(petOnly(600), 10, WORK_AREA).height).toBe(INITIAL_HEIGHT)
   })
 
   // BrowserWindow.setBounds에 소수를 넘기면 main 프로세스가 통째로 죽는다.
   // 콘텐츠 높이는 renderer가 재서 보내므로 소수로 올 수 있다.
   it('좌표와 크기를 정수로 준다', () => {
-    const next = nextBounds(
-      { x: 500, y: 401, width: 380, height: INITIAL_HEIGHT },
-      'above',
-      220.5,
-      ROOMY
-    )
+    const next = fitBounds({ x: 500, y: 601, width: 380, height: INITIAL_HEIGHT }, 220.5, WORK_AREA)
 
-    for (const value of Object.values(next.bounds)) {
+    for (const value of Object.values(next.bounds ?? next)) {
       expect(Number.isInteger(value)).toBe(true)
     }
   })
@@ -146,40 +117,70 @@ describe('nextBounds', () => {
   it('가로 위치와 너비는 건드리지 않는다', () => {
     const current = petOnly(600)
 
-    const next = nextBounds(current, 'above', PANEL_HEIGHT, ROOMY)
+    const next = fitBounds(current, PANEL_HEIGHT, WORK_AREA)
 
-    expect(next.bounds.x).toBe(current.x)
-    expect(next.bounds.width).toBe(current.width)
+    expect(next.x).toBe(current.x)
+    expect(next.width).toBe(current.width)
   })
 })
 
-// macOS는 보이는 창의 top을 작업 영역 아래로 강제하지만(실측: 요청 y와 무관하게 workArea.y),
-// 아래쪽은 막지 않는다. 그대로 두면 펫을 아래로 끌어 화면 밖으로 내보내 잃어버릴 수 있고,
-// 위만 막히니 드래그가 비대칭으로 느껴진다.
-describe('clampY', () => {
-  const win = (y: number, height = INITIAL_HEIGHT): Rect => ({ x: 500, y, width: 380, height })
+// 잘린 방향을 알려야 "끌어오면 다 보인다"는 힌트를 띄울 수 있다.
+describe('clipOf', () => {
+  const PANEL_WIDTH = 308
+  const WINDOW_WIDTH = 380
+  const RIGHT_EDGE = WORK_AREA.x + WORK_AREA.width
 
-  it('작업 영역 안이면 그대로 둔다', () => {
-    expect(clampY(win(400), ROOMY)).toBe(400)
+  /** 콘텐츠가 가운데 오도록 창 x를 역산한다. */
+  function windowFor(contentLeft: number): Rect {
+    return {
+      x: contentLeft - (WINDOW_WIDTH - PANEL_WIDTH) / 2,
+      y: 600,
+      width: WINDOW_WIDTH,
+      height: PANEL_HEIGHT
+    }
+  }
+
+  it('화면 안에 다 들어오면 아무 데도 잘리지 않았다고 본다', () => {
+    const clip = clipOf(windowFor(500), PANEL_WIDTH, PANEL_HEIGHT, WORK_AREA)
+
+    expect(clip).toEqual({ top: false, left: false, right: false })
   })
 
-  it('아래로 끌어도 창이 작업 영역을 벗어나지 않는다', () => {
-    const clamped = clampY(win(5000), ROOMY)
+  it('창이 원하는 높이보다 낮으면 위가 잘린 것이다', () => {
+    const rect = { ...windowFor(500), height: INITIAL_HEIGHT }
 
-    expect(clamped + INITIAL_HEIGHT).toBeLessThanOrEqual(ROOMY.y + ROOMY.height)
+    expect(clipOf(rect, PANEL_WIDTH, PANEL_HEIGHT, WORK_AREA).top).toBe(true)
   })
 
-  it('위로 끌어도 작업 영역 위로 올라가지 않는다', () => {
-    expect(clampY(win(-500), ROOMY)).toBe(ROOMY.y)
+  it('콘텐츠 왼쪽 변이 화면 밖이면 왼쪽이 잘린 것이다', () => {
+    const clip = clipOf(windowFor(WORK_AREA.x - 40), PANEL_WIDTH, PANEL_HEIGHT, WORK_AREA)
+
+    expect(clip.left).toBe(true)
+    expect(clip.right).toBe(false)
   })
 
-  // 패널을 펼치면 창이 화면보다 높을 수 있다. 이때는 가둘 수 없으니 위에 붙인다.
-  it('창이 작업 영역보다 높으면 위에 붙인다', () => {
-    expect(clampY(win(500, ROOMY.height + 200), ROOMY)).toBe(ROOMY.y)
+  it('콘텐츠 오른쪽 변이 화면 밖이면 오른쪽이 잘린 것이다', () => {
+    const clip = clipOf(windowFor(RIGHT_EDGE - PANEL_WIDTH + 40), PANEL_WIDTH, PANEL_HEIGHT, WORK_AREA)
+
+    expect(clip.right).toBe(true)
+    expect(clip.left).toBe(false)
   })
 
-  // setPosition에 소수를 넘기면 main 프로세스가 통째로 죽는다.
-  it('정수를 준다', () => {
-    expect(Number.isInteger(clampY(win(400.5), ROOMY))).toBe(true)
+  // 창에는 가장 넓은 콘텐츠에 맞춘 여백이 있다. 창이 조금 나갔다고 콘텐츠가 잘리지는 않는다.
+  it('창은 나갔지만 콘텐츠는 안에 있으면 잘리지 않았다고 본다', () => {
+    const rect = { ...windowFor(WORK_AREA.x + 4), height: PANEL_HEIGHT }
+    expect(rect.x).toBeLessThan(WORK_AREA.x)
+
+    expect(clipOf(rect, PANEL_WIDTH, PANEL_HEIGHT, WORK_AREA).left).toBe(false)
+  })
+
+  it('여러 방향이 동시에 잘릴 수 있다', () => {
+    const rect = { ...windowFor(WORK_AREA.x - 40), height: INITIAL_HEIGHT }
+
+    expect(clipOf(rect, PANEL_WIDTH, PANEL_HEIGHT, WORK_AREA)).toEqual({
+      top: true,
+      left: true,
+      right: false
+    })
   })
 })

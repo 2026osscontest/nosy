@@ -15,12 +15,20 @@ export const CHANNEL = {
   revertFix: 'nosy:revert-fix',
   setClickThrough: 'nosy:set-click-through',
   moveBy: 'nosy:move-by',
-  setContentHeight: 'nosy:set-content-height',
-  state: 'nosy:state'
+  setContentSize: 'nosy:set-content-size',
+  state: 'nosy:state',
+  clip: 'nosy:clip'
 } as const
 
-/** 말풍선·패널을 펫의 위로 펼쳤는지 아래로 펼쳤는지 (main/panel-layout.ts 참조). */
-export type PanelPlacement = 'above' | 'below'
+/**
+ * 콘텐츠가 작업 영역 밖으로 잘려 나간 방향 (main/panel-layout.ts 참조).
+ * 아래쪽은 없다 — 펫이 화면 아래로 나가면 힌트도 함께 나가 보여줄 수가 없다.
+ */
+export interface ClipState {
+  top: boolean
+  left: boolean
+  right: boolean
+}
 
 /** 'self': 30분 주기 체크(자체형 어댑터만), 'all': 전체 (drift-detection-spec FR-006). */
 export type DiagnosticScope = 'all' | 'self'
@@ -109,12 +117,15 @@ export interface NosyApi {
   /** 창을 화면 좌표 기준으로 dx·dy만큼 옮긴다 (드래그, pet-window-spec FR-001). */
   moveBy(dx: number, dy: number): void
   /**
-   * 지금 그려야 할 콘텐츠 높이를 알리고, 어느 쪽으로 펼쳤는지 돌려받는다.
+   * 지금 그려야 할 콘텐츠 크기를 알린다. 창을 콘텐츠보다 크게 잡으면 그 여유분이 그대로
+   * 드래그 상한선이 되므로 창은 여기 맞춰 잡는다.
    *
-   * 창을 콘텐츠보다 크게 잡으면 그 여유분이 그대로 드래그 상한선이 되므로 창은 딱 맞춰
-   * 잡는다. 펼칠 방향은 화면 경계를 봐야 정해지는데 renderer는 그것을 알 수 없어 main이 정한다.
+   * 응답을 기다리지 않는다 — 결과(무엇이 잘렸는지)는 언제나 `onClip`으로 도착한다.
+   * 드래그로도 잘림이 바뀌는데 드래그는 초당 수십 번이라 왕복시킬 수 없기 때문이다.
    */
-  setContentHeight(height: number): Promise<PanelPlacement>
+  setContentSize(width: number, height: number): void
+  /** 잘린 방향이 바뀔 때마다 불린다. 반환값은 구독 해제 함수다. */
+  onClip(handler: (clip: ClipState) => void): () => void
   applyFix(findingId: string): Promise<FixResult>
   revertFix(findingId: string): Promise<FixResult>
   /** 반환값은 구독 해제 함수 — React useEffect의 정리 함수로 그대로 쓴다. */

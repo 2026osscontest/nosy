@@ -5,13 +5,25 @@ import { useEffect, useRef, useState } from 'react'
 import { PetView } from './PetView'
 import { Bubble } from './Bubble'
 import { FixPanel } from './FixPanel'
-import type { PanelPlacement, PetSnapshot } from '../shared/ipc'
+import type { ClipState, PetSnapshot } from '../shared/ipc'
 
 /** 이보다 적게 움직였으면 드래그가 아니라 클릭으로 본다 (pet-window-spec P4). */
 const CLICK_SLOP_PX = 4
 
-/** .pet-interactive를 창 가장자리에서 띄우는 여백. index.css의 top/bottom과 같은 값이다. */
+/** .pet-interactive를 창 아래쪽 가장자리에서 띄우는 여백. index.css의 bottom과 같은 값이다. */
 const CONTENT_MARGIN_PX = 8
+
+const NOTHING_CLIPPED = { top: false, left: false, right: false }
+
+/**
+ * 잘린 방향 → 끌어야 할 방향. 화면 밖으로 나간 쪽의 반대로 끌어와야 다 보인다.
+ * 아래쪽은 다루지 않는다 — 펫이 화면 아래로 나가면 이 힌트도 함께 나간다.
+ */
+function dragHint(clip: ClipState): string | null {
+  const arrows = [clip.top && '↓', clip.left && '→', clip.right && '←'].filter(Boolean)
+
+  return arrows.length > 0 ? `${arrows.join(' ')} 끌어오면 다 보입니다` : null
+}
 
 type View = 'closed' | 'bubble' | 'panel'
 
@@ -37,20 +49,23 @@ interface PetStageProps {
 
 export function PetStage({ snapshot }: PetStageProps) {
   const [view, setView] = useState<View>('closed')
-  // 패널을 펫 위로 펼칠지 아래로 펼칠지는 화면 경계를 아는 main이 정한다.
-  const [placement, setPlacement] = useState<PanelPlacement>('above')
+  // 화면 밖으로 나간 부분이 있으면 어느 쪽으로 끌어야 하는지 알린다.
+  const [clip, setClip] = useState<ClipState>(NOTHING_CLIPPED)
   const [dragging, setDragging] = useState(false)
   const drag = useRef<DragState | null>(null)
   const interactive = useRef<HTMLDivElement>(null)
-  const lastHeight = useRef(0)
+  const lastSize = useRef('')
 
   const petState = snapshot?.petState ?? 'idle'
+  const hint = dragHint(clip)
 
   // 창은 펫보다 크고 남는 영역은 비어 있다. 기본을 관통으로 두지 않으면
   // 그 빈 영역이 아래 창의 클릭을 삼킨다 (FR-002).
   useEffect(() => {
     window.nosy.setClickThrough(true)
   }, [])
+
+  useEffect(() => window.nosy.onClip(setClip), [])
 
   // 창은 지금 그려진 만큼만 차지해야 한다. 콘텐츠보다 크면 그 여유분이 그대로 드래그
   // 상한선이 된다 — 펫 위쪽 빈 영역이 화면 천장에 걸리기 때문이다 (main/panel-layout.ts).
@@ -61,13 +76,15 @@ export function PetStage({ snapshot }: PetStageProps) {
     if (!element) return
 
     const sync = (): void => {
+      const width = element.offsetWidth
       const height = element.offsetHeight + CONTENT_MARGIN_PX * 2
 
-      // 같은 높이를 다시 보내면 setBounds → 리렌더 → 관측이 되풀이될 수 있다.
-      if (height === lastHeight.current) return
-      lastHeight.current = height
+      // 같은 크기를 다시 보내면 setBounds → 리렌더 → 관측이 되풀이될 수 있다.
+      const key = `${width}x${height}`
+      if (key === lastSize.current) return
+      lastSize.current = key
 
-      void window.nosy.setContentHeight(height).then(setPlacement)
+      window.nosy.setContentSize(width, height)
     }
 
     sync()
@@ -154,7 +171,6 @@ export function PetStage({ snapshot }: PetStageProps) {
       <div
         ref={interactive}
         className="pet-interactive"
-        data-place={placement}
         onPointerEnter={(event) => {
           // 버튼을 누르지 않은 채 들어왔는데 드래그 상태가 남아 있다면 지난 드래그의 잔재다.
           if (event.buttons === 0) drag.current = null
@@ -167,6 +183,9 @@ export function PetStage({ snapshot }: PetStageProps) {
       >
         {view === 'bubble' && <Bubble snapshot={snapshot} />}
         {view === 'panel' && <FixPanel snapshot={snapshot} />}
+
+        {/* 레이아웃 안에 둔다 — 창 높이는 이 요소를 포함해 잡히므로 힌트 자체는 잘리지 않는다. */}
+        {hint && <p className="pet-clip-hint">{hint}</p>}
 
         <div
           className="pet-anchor"
