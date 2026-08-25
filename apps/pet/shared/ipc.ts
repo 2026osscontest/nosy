@@ -17,7 +17,8 @@ export const CHANNEL = {
   moveBy: 'nosy:move-by',
   setContentSize: 'nosy:set-content-size',
   state: 'nosy:state',
-  place: 'nosy:place'
+  place: 'nosy:place',
+  motion: 'nosy:motion'
 } as const
 
 /**
@@ -142,6 +143,12 @@ export interface NosyApi {
   setContentSize(width: number, height: number): void
   /** 콘텐츠를 놓을 자리가 정해질 때마다 불린다. 반환값은 구독 해제 함수다. */
   onPlace(handler: (placement: Placement) => void): () => void
+  /**
+   * 움직임을 켤지 끌지가 바뀔 때마다 불린다 (Tray "움직임", FR-010).
+   * 끄면 펫의 숨쉬는 프레임도, 패널을 여닫을 때의 연출도 멈춘다 — 자리만 즉시 바뀐다.
+   * 켜진 채로 시작하며, 창이 뜬 직후 현재 값이 한 번 온다. 반환값은 구독 해제 함수다.
+   */
+  onMotion(handler: (enabled: boolean) => void): () => void
   applyFix(findingId: string): Promise<FixResult>
   revertFix(findingId: string): Promise<FixResult>
   /** 반환값은 구독 해제 함수 — React useEffect의 정리 함수로 그대로 쓴다. */

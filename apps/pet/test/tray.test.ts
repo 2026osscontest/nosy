@@ -61,7 +61,15 @@ function fakeWindow() {
 }
 
 function fakeRunner(): DiagnosticsRunner {
-  return { run: vi.fn(async () => {}), recenter: vi.fn() }
+  let motion = true
+
+  return {
+    run: vi.fn(async () => {}),
+    motionEnabled: () => motion,
+    setMotion: vi.fn((enabled: boolean) => {
+      motion = enabled
+    })
+  }
 }
 
 /** 가장 최근에 만들어진 메뉴 템플릿 — 토글로 다시 그려질 때마다 갱신된다. */
@@ -112,30 +120,26 @@ describe('createTray', () => {
     )
   })
 
-  it('FR-010이 요구한 메뉴 4종에 펫 데려오기를 더해 제공한다', async () => {
+  // "펫 데려오기"는 없다. 창이 작업 영역 전체가 된 뒤로 펫이 화면 밖으로 나갈 수 없고,
+  // 해상도가 바뀌는 경우는 main이 스스로 다시 잡는다 (main/ipc.ts refit).
+  it('FR-010이 요구한 메뉴 4종을 제공한다', async () => {
     await setup()
 
     const labels = currentMenu()
       .map((item) => item.label)
       .filter(Boolean)
 
-    expect(labels).toEqual([
-      '지금 진단하기',
-      '펫 데려오기',
-      '펫 숨기기',
-      '로그인 시 자동 시작',
-      '종료'
-    ])
+    expect(labels).toEqual(['지금 진단하기', '펫 숨기기', '움직임', '로그인 시 자동 시작', '종료'])
   })
 
-  // 창은 늘 작업 영역 전체라 옮길 것이 없다. 되돌리는 것은 펫의 집이다.
-  it("'펫 데려오기'는 펫을 화면 가운데로 되돌린다", async () => {
-    const { window, runner } = await setup()
+  it("'움직임'은 켜진 채로 시작하고 누르면 꺼진다", async () => {
+    const { runner } = await setup()
 
-    click('펫 데려오기')
+    expect(itemLabeled('움직임').checked).toBe(true)
 
-    expect(runner.recenter).toHaveBeenCalled()
-    expect(window.show).toHaveBeenCalled()
+    click('움직임', { checked: false })
+
+    expect(runner.setMotion).toHaveBeenCalledWith(false)
   })
 
   it("'지금 진단하기'는 전체 스코프로 진단을 돌린다", async () => {

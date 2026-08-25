@@ -16,7 +16,8 @@ const mocks = vi.hoisted(() => ({
   rendererOn: vi.fn(),
   removeListener: vi.fn(),
   handle: vi.fn(),
-  mainOn: vi.fn()
+  mainOn: vi.fn(),
+  screenOn: vi.fn()
 }))
 
 vi.mock('electron', () => ({
@@ -28,9 +29,9 @@ vi.mock('electron', () => ({
     removeListener: mocks.removeListener
   },
   ipcMain: { handle: mocks.handle, on: mocks.mainOn },
-  // 창을 놓을 때 작업 영역을 본다 — 콘텐츠가 화면 밖으로 나가면 안으로 민다
-  // (main/panel-layout.ts placeBounds).
-  screen: { getDisplayMatching: () => ({ workArea: WORK_AREA }) }
+  // 콘텐츠를 놓을 때 작업 영역을 본다 — 화면 밖으로 나가면 안으로 민다
+  // (main/panel-layout.ts placeBounds). on은 해상도 변경을 듣기 위한 것이다.
+  screen: { getDisplayMatching: () => ({ workArea: WORK_AREA }), on: mocks.screenOn }
 }))
 
 /** 넉넉한 작업 영역 — 이 테스트들은 가두기 자체가 아니라 배선을 본다. */
@@ -80,7 +81,8 @@ interface SentMessage {
 function fakeWindow(sent: SentMessage[]) {
   return {
     webContents: {
-      send: (channel: string, payload: PetSnapshot | Placement) => sent.push({ channel, payload })
+      send: (channel: string, payload: PetSnapshot | Placement) => sent.push({ channel, payload }),
+      on: vi.fn()
     },
     setIgnoreMouseEvents: vi.fn(),
     getPosition: vi.fn(() => [100, 200]),
@@ -103,7 +105,7 @@ describe('preload 브릿지', () => {
     expect(key).toBe('nosy')
   })
 
-  it('약속한 9개 항목을 노출한다', async () => {
+  it('약속한 10개 항목을 노출한다', async () => {
     const { api } = await loadBridge()
 
     expect(Object.keys(api).sort()).toEqual(
@@ -111,6 +113,7 @@ describe('preload 브릿지', () => {
         'applyFix',
         'moveBy',
         'onPlace',
+        'onMotion',
         'onState',
         'platform',
         'revertFix',
@@ -279,6 +282,33 @@ describe('registerIpcHandlers', () => {
     for (const value of Object.values(placement as Placement)) {
       expect(Number.isInteger(value)).toBe(true)
     }
+  })
+
+  // 창은 만들 때 한 번 작업 영역에 맞춘 뒤로 스스로 따라가지 않는다. 화면이 작아졌을 때
+  // 다시 잡지 않으면 창이 화면 밖으로 삐져나가고, 그 밖에 선 펫은 영영 보이지 않는다 —
+  // 창이 화면 전체가 된 뒤로는 이것이 펫을 잃어버리는 유일한 경로다.
+  it('해상도가 바뀌면 창과 펫의 집을 새 작업 영역 안으로 다시 잡는다', async () => {
+    const { sent, window, onHandler } = await register()
+
+    // 오른쪽 끝까지 끌어 둔다. 이 자리는 지금 작업 영역에서는 정상이다.
+    onHandler(CHANNEL.moveBy)?.({}, 5000, 5000)
+
+    const before = placements(sent).at(-1)
+    expect(before?.left).toBeLessThan(WORK_AREA.width)
+
+    const refit = mocks.screenOn.mock.calls.find((c) => c[0] === 'display-metrics-changed')?.[1] as
+      | (() => void)
+      | undefined
+
+    expect(refit).toBeDefined()
+    refit?.()
+
+    // 창은 작업 영역을 그대로 덮어야 한다.
+    expect(window.setBounds).toHaveBeenCalledWith(WORK_AREA)
+    // 펫도 여전히 작업 영역 안이다.
+    const after = placements(sent).at(-1)
+    expect(after?.left).toBeLessThan(WORK_AREA.width)
+    expect(after?.top).toBeLessThan(WORK_AREA.height)
   })
 
   it('숫자가 아닌 델타는 무시한다', async () => {

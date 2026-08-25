@@ -19,7 +19,13 @@ const mocks = vi.hoisted(() => ({
 vi.mock('electron', () => ({
   contextBridge: { exposeInMainWorld: vi.fn() },
   ipcRenderer: { invoke: vi.fn(), send: vi.fn(), on: vi.fn(), removeListener: vi.fn() },
-  ipcMain: { handle: mocks.handle, on: mocks.mainOn }
+  ipcMain: { handle: mocks.handle, on: mocks.mainOn },
+  // 이 파일은 fix 경로만 본다. 창 배치는 관심사가 아니지만 핸들러 등록이 이것들을
+  // 건드리므로 최소한만 채운다.
+  screen: {
+    getDisplayMatching: () => ({ workArea: { x: 0, y: 0, width: 1440, height: 900 } }),
+    on: vi.fn()
+  }
 }))
 
 const HOME = '/Users/fixture'
@@ -63,7 +69,8 @@ interface SentMessage {
 function fakeWindow(sent: SentMessage[]) {
   return {
     webContents: {
-      send: (channel: string, payload: PetSnapshot) => sent.push({ channel, payload })
+      send: (channel: string, payload: PetSnapshot) => sent.push({ channel, payload }),
+      on: vi.fn()
     },
     setIgnoreMouseEvents: vi.fn(),
     // 핸들러 등록 시점에 펫의 자리를 창에서 읽는다 (main/ipc.ts home).

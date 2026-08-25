@@ -35,6 +35,14 @@ const api: NosyApi = {
     return () => ipcRenderer.removeListener(CHANNEL.place, listener)
   },
 
+  /** 구독 해제 함수를 반환한다 — onState와 같은 규약이다. */
+  onMotion: (handler: (enabled: boolean) => void): (() => void) => {
+    const listener = (_event: IpcRendererEvent, enabled: boolean): void => handler(enabled)
+
+    ipcRenderer.on(CHANNEL.motion, listener)
+    return () => ipcRenderer.removeListener(CHANNEL.motion, listener)
+  },
+
   applyFix: (findingId: string): Promise<FixResult> =>
     ipcRenderer.invoke(CHANNEL.applyFix, findingId),
 

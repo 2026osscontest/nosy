@@ -126,6 +126,13 @@ export function PetStage({ snapshot }: PetStageProps) {
    * 펫이 화면 어디에 있느냐는 창이 아니라 이 값 하나가 정한다.
    */
   const [foot, setFoot] = useState<Foot | null>(null)
+  /**
+   * 움직임 스위치 (Tray "움직임"). 꺼지면 펫의 프레임도, 여닫을 때의 연출도 멈춘다 —
+   * 자리는 즉시 바뀐다. main이 창이 뜬 직후 현재 값을 한 번 보내 준다.
+   */
+  const [motionOn, setMotionOn] = useState(true)
+  /** 배치 구독은 한 번만 걸리고 다시 걸리지 않으므로, 그 안에서는 최신 값을 ref로 읽는다. */
+  const motionRef = useRef(true)
   /** 펫이 지금 자기 자리에서 얼마나 벗어나 있는지. 되돌아갈 거리이자 방향이다. */
   const displaced = useRef<Shove>({ x: 0, y: 0 })
   const [dragging, setDragging] = useState(false)
@@ -147,6 +154,15 @@ export function PetStage({ snapshot }: PetStageProps) {
 
   useEffect(
     () =>
+      window.nosy.onMotion((enabled) => {
+        motionRef.current = enabled
+        setMotionOn(enabled)
+      }),
+    []
+  )
+
+  useEffect(
+    () =>
       window.nosy.onPlace((next) => {
         displaced.current = { x: next.x, y: next.y }
         // 곧바로 반영한다. 드래그는 이 값이 갱신되는 속도가 그대로 펫이 커서를 따라오는
@@ -159,7 +175,8 @@ export function PetStage({ snapshot }: PetStageProps) {
         // 감출 것도 없다 — 감추는 그 구간이 여닫을 때 보이던 깜빡임이었다.
         setFoot({ left: next.left, top: next.top })
 
-        if (next.x === 0 && next.y === 0) {
+        // 움직임이 꺼져 있으면 자리만 바꾸고 끝낸다.
+        if (!motionRef.current || (next.x === 0 && next.y === 0)) {
           setRetreat(null)
           setShove(null)
           return
@@ -174,11 +191,19 @@ export function PetStage({ snapshot }: PetStageProps) {
   useEffect(() => {
     if (view !== 'closing') return
 
+    // 움직임이 꺼져 있으면 끌려가는 구간 없이 곧장 닫는다.
+    if (!motionOn) {
+      setShove(null)
+      setRetreat(null)
+      setView('closed')
+      return
+    }
+
     // 들어오는 밀림 애니메이션이 아직 돌고 있었다면 여기서 넘겨받는다. 둘이 같은 요소를
     // 두고 다투면 어느 쪽이 이기는지가 CSS 규칙 순서에 달리게 된다.
     setShove(null)
     setRetreat(displaced.current)
-  }, [view])
+  }, [view, motionOn])
 
   // 같은 방향으로 다시 밀려도 애니메이션이 처음부터 돌아야 한다. animation 속성을 떼고
   // 리플로우를 강제한 뒤 도로 붙이면 브라우저가 처음부터 다시 돌린다.
@@ -369,7 +394,7 @@ export function PetStage({ snapshot }: PetStageProps) {
             {/* 이동은 바깥(.pet-anchor), 눌림·늘어남은 안쪽에서 따로 돈다. 한 애니메이션에
                 묶으면 이동 시간을 거리에 맞출 때 착지 타이밍까지 같이 늘어난다. */}
             <div ref={body} className="pet-body">
-              <PetView state={petState} />
+              <PetView state={petState} animated={motionOn} />
             </div>
           </div>
         </div>

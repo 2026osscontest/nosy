@@ -61,11 +61,10 @@ let latest: PetSnapshot | undefined
 export interface DiagnosticsRunner {
   /** 이미 진단이 돌고 있으면 무시된다. 결과는 언제나 CHANNEL.state로만 도착한다. */
   run(scope: DiagnosticScope): Promise<void>
-  /**
-   * 펫을 작업 영역 한가운데로 되돌린다 (Tray "펫 데려오기", FR-010).
-   * 창은 늘 작업 영역 전체이므로 창을 옮기는 것으로는 펫이 움직이지 않는다 — 옮길 것은 home이다.
-   */
-  recenter(): void
+  /** 지금 움직임이 켜져 있는지 (Tray "움직임", FR-010). */
+  motionEnabled(): boolean
+  /** 움직임을 켜거나 끄고 renderer에 알린다. */
+  setMotion(enabled: boolean): void
 }
 
 /** IPC 핸들러를 등록한다. 결과는 window.webContents로 밀어넣는다. */
@@ -214,18 +213,37 @@ export function registerIpcHandlers(
     return { ok: true, backupPath: outcome.backupPath }
   })
 
-  const recenter = (): void => {
+  /**
+   * 해상도나 작업 영역이 바뀌면 창과 펫의 집을 다시 잡는다.
+   *
+   * 창은 만들 때 한 번 작업 영역에 맞춘 뒤로 스스로 따라가지 않는다. 그대로 두면 화면이
+   * 작아졌을 때 창이 화면 밖으로 삐져나가고, 그 밖에 있는 집에 선 펫은 영영 보이지 않는다
+   * — 창이 화면 전체가 된 뒤로는 이것이 펫을 잃어버리는 유일한 경로다.
+   */
+  const refit = (): void => {
+    if (window.isDestroyed()) return
+
     const { workArea } = screen.getDisplayMatching(window.getBounds())
 
-    // 펫 하나 크기의 상자를 작업 영역 한가운데 놓고, 그 안에서 펫이 설 자리를 집으로 삼는다.
-    home = petOrigin({
-      x: workArea.x + Math.round((workArea.width - INITIAL_WIDTH) / 2),
-      y: workArea.y + Math.round((workArea.height - INITIAL_HEIGHT) / 2),
-      width: INITIAL_WIDTH,
-      height: INITIAL_HEIGHT
-    })
+    window.setBounds(workArea)
+    // 집도 새 작업 영역 안으로 끌어온다. placeBounds는 놓을 자리만 가둘 뿐 집은 건드리지
+    // 않으므로, 집이 밖에 남으면 화면 가장자리에 붙어 떨어지지 않는다.
+    home = petOrigin(placeBounds(home, content, workArea))
     place(true)
   }
 
-  return { run, recenter }
+  screen.on('display-metrics-changed', refit)
+
+  /** 움직임 스위치. 켜진 채로 시작한다 (FR-010). */
+  let motion = true
+
+  const setMotion = (enabled: boolean): void => {
+    motion = enabled
+    if (!window.isDestroyed()) window.webContents.send(CHANNEL.motion, motion)
+  }
+
+  // renderer가 붙기 전에 보낸 값은 사라진다. 창이 다 뜬 뒤 현재 값을 한 번 알려 준다.
+  window.webContents.on('did-finish-load', () => setMotion(motion))
+
+  return { run, motionEnabled: () => motion, setMotion }
 }

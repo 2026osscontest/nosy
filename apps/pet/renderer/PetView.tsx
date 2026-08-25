@@ -24,19 +24,24 @@ const SCALE = 4
 
 interface PetViewProps {
   state: PetState
+  /** 꺼지면 프레임을 넘기지 않고 첫 프레임에 멈춘다 (Tray "움직임", pet-window-spec FR-010). */
+  animated?: boolean
 }
 
-export function PetView({ state }: PetViewProps) {
+export function PetView({ state, animated = true }: PetViewProps) {
   const [elapsedMs, setElapsedMs] = useState(0)
 
   useEffect(() => {
     setElapsedMs(0)
+    // 멈춘 동안에는 타이머를 걸지 않는다. 경과 시간이 0이면 프레임도 0이다.
+    if (!animated) return
+
     const start = performance.now()
     const id = window.setInterval(() => {
       setElapsedMs(performance.now() - start)
     }, 1000 / CHARACTER_FPS)
     return () => window.clearInterval(id)
-  }, [state])
+  }, [state, animated])
 
   const frame = frameIndexAt(elapsedMs, state)
   const url = spriteUrls[spriteKey(state, frame)]

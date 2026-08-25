@@ -30,17 +30,6 @@ export function createTray(window: BrowserWindow, runner: DiagnosticsRunner): Tr
     tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: '지금 진단하기', click: () => void runner.run('all') },
-        // 콘텐츠는 늘 작업 영역 안으로 밀린다(main/panel-layout.ts placeBounds). 그래도
-        // 해상도가 바뀌면 펫의 집이 없어진 자리에 남을 수 있어, 되찾을 수단을 남겨 둔다.
-        // 창은 화면 전체라 옮길 것이 없다 — 되돌리는 것은 펫의 집이다.
-        {
-          label: '펫 데려오기',
-          click: () => {
-            runner.recenter()
-            window.show()
-            render()
-          }
-        },
         {
           label: window.isVisible() ? '펫 숨기기' : '펫 보이기',
           click: () => {
@@ -50,6 +39,14 @@ export function createTray(window: BrowserWindow, runner: DiagnosticsRunner): Tr
           }
         },
         { type: 'separator' },
+        // 시연 도중 연출이 거슬리거나 화면 녹화에서 프레임이 튈 때 즉시 끌 수 있어야 한다.
+        // 끄면 펫의 숨쉬는 프레임도, 패널을 여닫을 때의 연출도 멈춘다.
+        {
+          label: '움직임',
+          type: 'checkbox',
+          checked: runner.motionEnabled(),
+          click: (item) => runner.setMotion(item.checked)
+        },
         {
           label: '로그인 시 자동 시작',
           type: 'checkbox',

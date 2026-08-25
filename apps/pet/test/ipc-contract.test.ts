@@ -43,11 +43,12 @@ const NEW_ERROR_DRIFT: DriftResult = {
 }
 
 describe('CHANNEL', () => {
-  it('채널 8종을 정의한다', () => {
+  it('채널 9종을 정의한다', () => {
     expect(Object.keys(CHANNEL).sort()).toEqual(
       [
         'applyFix',
         'place',
+        'motion',
         'moveBy',
         'revertFix',
         'run',
