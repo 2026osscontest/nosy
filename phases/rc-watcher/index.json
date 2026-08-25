@@ -20,5 +20,6 @@
       "summary": "apps/pet/main/rc-watcher.ts 신규 — fs.watchFile(interval 2000)로 ~/.zshrc·.bashrc·.zprofile 3종을 폴링 감시하고 mtimeMs가 실제로 달라졌을 때만 void runner.run('self')로 자체형 어댑터만 재진단한다(기동 시 진단 없음, RC_FILENAMES는 core의 동명 상수와 같은 목록임을 주석 고지). apps/pet/main/index.ts는 NodeHost 인스턴스를 host 변수로 뽑아 registerIpcHandlers와 startRcWatcher(runner, host.homedir)가 같은 홈 경로를 공유하도록 배선했다. lint/build 통과, apps/pet 테스트 115개 전부 통과(rc-watcher 8/8)."
     }
   ],
-  "created_at": "2026-08-25T13:07:38+09:00"
+  "created_at": "2026-08-25T13:07:38+09:00",
+  "completed_at": "2026-08-25T13:09:16+09:00"
 }
