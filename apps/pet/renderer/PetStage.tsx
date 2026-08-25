@@ -52,6 +52,25 @@ export function PetStage({ snapshot }: PetStageProps) {
     if (petState === 'alarmed') setView((current) => (current === 'closed' ? 'bubble' : current))
   }, [petState])
 
+  /**
+   * 드래그 상태를 정리하고 직전 상태를 돌려준다.
+   *
+   * releasePointerCapture는 캡처를 갖고 있지 않으면 예외를 던진다. 한 번 어긋나면 이 정리
+   * 경로가 통째로 막혀 drag.current가 낡은 좌표를 든 채 살아남으므로 먼저 확인하고 부른다.
+   */
+  const endDrag = (event: React.PointerEvent<HTMLDivElement>): DragState | null => {
+    const state = drag.current
+
+    drag.current = null
+    setDragging(false)
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+
+    return state
+  }
+
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>): void => {
     event.currentTarget.setPointerCapture(event.pointerId)
     drag.current = { lastX: event.screenX, lastY: event.screenY, movedX: 0, movedY: 0 }
@@ -61,6 +80,14 @@ export function PetStage({ snapshot }: PetStageProps) {
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>): void => {
     const state = drag.current
     if (!state) return
+
+    // 버튼이 이미 떼어진 뒤의 이동이라면 pointerup을 놓친 것이다. 그대로 두면 lastX/lastY가
+    // 놓은 자리에 멈춘 채 남아, 다음에 커서가 펫에 닿는 순간 그동안 벌어진 거리가 통째로
+    // 델타로 계산되어 창이 그만큼 순간이동한다.
+    if (event.buttons === 0) {
+      endDrag(event)
+      return
+    }
 
     // 화면 좌표의 차이를 쓴다 — 창이 커서 아래에서 움직여도 델타가 어긋나지 않는다.
     // Retina·트랙패드에서 screenX는 소수로 오는데 BrowserWindow.setPosition은 정수만 받는다.
@@ -79,10 +106,7 @@ export function PetStage({ snapshot }: PetStageProps) {
   }
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>): void => {
-    const state = drag.current
-    drag.current = null
-    setDragging(false)
-    event.currentTarget.releasePointerCapture(event.pointerId)
+    const state = endDrag(event)
     if (!state) return
 
     if (Math.abs(state.movedX) <= CLICK_SLOP_PX && Math.abs(state.movedY) <= CLICK_SLOP_PX) {
@@ -96,7 +120,11 @@ export function PetStage({ snapshot }: PetStageProps) {
           있으면 클릭이 관통되어 토글이 눌리지 않는다. */}
       <div
         className="pet-interactive"
-        onPointerEnter={() => window.nosy.setClickThrough(false)}
+        onPointerEnter={(event) => {
+          // 버튼을 누르지 않은 채 들어왔는데 드래그 상태가 남아 있다면 지난 드래그의 잔재다.
+          if (event.buttons === 0) drag.current = null
+          window.nosy.setClickThrough(false)
+        }}
         onPointerLeave={() => {
           // 드래그 중에는 커서가 잠깐 벗어나도 관통을 켜지 않는다 — 켜면 드래그가 끊긴다.
           if (!drag.current) window.nosy.setClickThrough(true)
