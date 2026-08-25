@@ -343,41 +343,48 @@ export function PetStage({ snapshot }: PetStageProps) {
         {view === 'bubble' && <Bubble snapshot={snapshot} />}
         {(view === 'panel' || view === 'closing') && <FixPanel snapshot={snapshot} />}
 
-        {/* 창이 밀려 펫이 자리를 떠났으면 그 방향으로 튕긴다 (index.css pet-shove).
-            transform만 바꾼다 — 레이아웃이 바뀌면 위 ResizeObserver가 창을 다시 잡고,
-            그 결과가 다시 밀림을 낳아 되먹임이 생긴다. */}
-        <div
-          ref={anchor}
-          className="pet-anchor"
-          data-dragging={dragging}
-          data-shove={shove !== null}
-          data-retreat={retreat !== null}
-          style={
-            {
-              '--shove-x': Math.sign(shove?.x ?? 0),
-              '--shove-y': Math.sign(shove?.y ?? 0),
-              ...motion
-            } as CSSProperties
-          }
-          // 이동이 먼저 끝나고 착지가 뒤따른다. 이동에서 지워 버리면 data-shove가 꺼지며
-          // 착지가 재생 도중에 사라진다 — 마지막인 착지가 끝났을 때만 지운다.
-          onAnimationEnd={(event) => {
-            if (event.animationName === 'pet-land') setShove(null)
-            // 다 끌려왔다. 이제 패널을 떼면 창이 줄어들고, 펫은 이미 그 자리에 있다.
-            if (event.animationName === 'pet-retreat') setView('closed')
-          }}
-          // CSS만으로 막히지 않는 경우를 대비한 두 번째 방어선. 네이티브 드래그가
-          // 시작되면 포인터 이벤트가 끊겨 아래 핸들러가 전부 죽는다.
-          onDragStart={(event) => event.preventDefault()}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-        >
-          {/* 이동은 바깥(.pet-anchor), 눌림·늘어남은 안쪽에서 따로 돈다. 한 애니메이션에
-              묶으면 이동 시간을 거리에 맞출 때 착지 타이밍까지 같이 늘어난다. */}
-          <div ref={body} className="pet-body">
-            <PetView state={petState} />
+        {/* 펫이 그려질 수 있는 영역의 위쪽 경계를 패널의 아래 가장자리에 못박는다.
+            펫은 애니메이션이 도는 동안 자기 합성 레이어로 올라가 z-index를 무시하고 패널
+            앞으로 나온다. 클립은 그 순서와 무관하게 그릴 수 있는 영역 자체를 자른다
+            (index.css .pet-gate). 접는 중에는 걸지 않는다 — 그때는 패널이 이미 사라졌고
+            펫이 그 자리로 끌려 올라가는 것이 보여야 한다. */}
+        <div className="pet-gate" data-gate={shove !== null}>
+          {/* 창이 밀려 펫이 자리를 떠났으면 그 방향으로 튕긴다 (index.css pet-shove).
+              transform만 바꾼다 — 레이아웃이 바뀌면 위 ResizeObserver가 창을 다시 잡고,
+              그 결과가 다시 밀림을 낳아 되먹임이 생긴다. */}
+          <div
+            ref={anchor}
+            className="pet-anchor"
+            data-dragging={dragging}
+            data-shove={shove !== null}
+            data-retreat={retreat !== null}
+            style={
+              {
+                '--shove-x': Math.sign(shove?.x ?? 0),
+                '--shove-y': Math.sign(shove?.y ?? 0),
+                ...motion
+              } as CSSProperties
+            }
+            // 이동이 먼저 끝나고 착지가 뒤따른다. 이동에서 지워 버리면 data-shove가 꺼지며
+            // 착지가 재생 도중에 사라진다 — 마지막인 착지가 끝났을 때만 지운다.
+            onAnimationEnd={(event) => {
+              if (event.animationName === 'pet-land') setShove(null)
+              // 다 끌려왔다. 이제 패널을 떼면 창이 줄어들고, 펫은 이미 그 자리에 있다.
+              if (event.animationName === 'pet-retreat') setView('closed')
+            }}
+            // CSS만으로 막히지 않는 경우를 대비한 두 번째 방어선. 네이티브 드래그가
+            // 시작되면 포인터 이벤트가 끊겨 아래 핸들러가 전부 죽는다.
+            onDragStart={(event) => event.preventDefault()}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+          >
+            {/* 이동은 바깥(.pet-anchor), 눌림·늘어남은 안쪽에서 따로 돈다. 한 애니메이션에
+                묶으면 이동 시간을 거리에 맞출 때 착지 타이밍까지 같이 늘어난다. */}
+            <div ref={body} className="pet-body">
+              <PetView state={petState} />
+            </div>
           </div>
         </div>
       </div>
