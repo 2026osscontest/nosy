@@ -8,9 +8,9 @@
 // 이 화면은 그 판정을 미리 보여주고(비활성 토글) 실행 전 확인을 받는 역할만 한다.
 
 import { useEffect, useRef, useState } from 'react'
-import { fixability, panelItems, scoreBar } from './summary'
-import type { AppliedRecord, PanelItem } from './summary'
-import type { Finding } from '@nosy/core'
+import { fixability, panelItems, scoreBar, trackResolved } from './summary'
+import type { PanelItem, TrackedRow } from './summary'
+import type { AdapterResult, Finding } from '@nosy/core'
 import type { PetSnapshot } from '../shared/ipc'
 
 interface FixPanelProps {
@@ -23,17 +23,28 @@ interface Failure {
 }
 
 export function FixPanel({ snapshot }: FixPanelProps) {
-  // main도 같은 기록을 들고 있지만 저쪽은 되돌리기 실행용이고, 이쪽은 화면에 남기기 위한 것이다.
-  // 적용에 성공하면 그 문제는 재진단 결과에서 사라지므로 여기 없으면 행이 통째로 증발한다.
-  const [applied, setApplied] = useState<Map<string, AppliedRecord>>(new Map())
+  // main도 적용 기록을 들고 있지만 저쪽은 되돌리기 실행용이고, 이쪽은 화면에 남기기 위한 것이다.
+  // 해결된 문제는 재진단 결과에서 사라지므로 여기 없으면 행이 통째로 증발한다.
+  const [tracked, setTracked] = useState<Map<string, TrackedRow>>(new Map())
   const [confirming, setConfirming] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [failure, setFailure] = useState<Failure | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
 
+  // 사용자가 에디터로 직접 고친 항목은 알림이 없다 — 결과에서 사라질 뿐이다.
+  // 직전 결과를 들고 있다가 비교해야 무엇이 해결됐는지 알 수 있다.
+  const previousResults = useRef<AdapterResult[]>([])
+
+  useEffect(() => {
+    if (!snapshot) return
+
+    setTracked((prev) => trackResolved(prev, previousResults.current, snapshot.results))
+    previousResults.current = snapshot.results
+  }, [snapshot])
+
   if (!snapshot) return null
 
-  const items = panelItems(snapshot.results, applied)
+  const items = panelItems(snapshot.results, tracked)
   const segments = scoreBar(snapshot.score.score, snapshot.results.some((result) =>
     result.findings.some((finding) => finding.severity === 'error')
   ))
@@ -49,7 +60,7 @@ export function FixPanel({ snapshot }: FixPanelProps) {
 
     if (result.ok && result.backupPath) {
       const backupPath = result.backupPath
-      setApplied((prev) => new Map(prev).set(finding.id, { finding, backupPath, reverted: false }))
+      setTracked((prev) => new Map(prev).set(finding.id, { finding, status: 'applied', backupPath }))
     } else {
       setFailure({ id: finding.id, message: result.error ?? '알 수 없는 이유로 실패했습니다.' })
     }
@@ -65,11 +76,11 @@ export function FixPanel({ snapshot }: FixPanelProps) {
 
     if (result.ok) {
       // 기록을 지우지 않고 표시만 바꾼다 — 지우면 재진단 결과가 도착하기 전 한 프레임 동안
-      // 이 항목이 어디에도 없어 행이 사라졌다 다시 나타난다 (summary.ts AppliedRecord 참조).
-      setApplied((prev) => {
-        const record = prev.get(finding.id)
-        if (!record) return prev
-        return new Map(prev).set(finding.id, { ...record, reverted: true })
+      // 이 항목이 어디에도 없어 행이 사라졌다 다시 나타난다 (summary.ts TrackedRow 참조).
+      setTracked((prev) => {
+        const row = prev.get(finding.id)
+        if (!row) return prev
+        return new Map(prev).set(finding.id, { ...row, status: 'reverted' })
       })
     } else {
       setFailure({ id: finding.id, message: result.error ?? '알 수 없는 이유로 실패했습니다.' })
@@ -160,9 +171,12 @@ function PanelRow({
   onRevert,
   onCopy
 }: PanelRowProps) {
-  const { finding, backupPath } = item
+  const { finding, status, backupPath } = item
   const mode = fixability(finding)
-  const isApplied = backupPath !== undefined
+  const isApplied = status === 'applied'
+  // 사용자가 직접 고쳤다. 해결된 것은 맞지만 이 앱에는 되돌릴 백업이 없다.
+  const isResolved = status === 'resolved'
+  const done = isApplied || isResolved
   const confirmRef = useRef<HTMLDivElement>(null)
 
   // 확인 화면은 행 아래로 펼쳐지므로 목록이 길면 화면 밖에서 열린다. 사용자가 방금 누른
@@ -172,7 +186,7 @@ function PanelRow({
   }, [confirming])
 
   return (
-    <li className="panel-row" data-severity={finding.severity} data-applied={isApplied}>
+    <li className="panel-row" data-severity={finding.severity} data-applied={done}>
       <div className="panel-row-head">
         <span className="panel-dot" />
         <p className="panel-row-title">{finding.title}</p>
@@ -181,8 +195,8 @@ function PanelRow({
         <button
           type="button"
           className="panel-switch"
-          data-on={isApplied}
-          disabled={mode !== 'ready' || busy}
+          data-on={done}
+          disabled={mode !== 'ready' || busy || isResolved}
           aria-label={isApplied ? `${finding.title} 되돌리기` : `${finding.title} 고치기`}
           onClick={isApplied ? onRevert : onRequest}
         >
@@ -199,7 +213,7 @@ function PanelRow({
         </>
       )}
 
-      {mode !== 'ready' && !isApplied && (
+      {mode !== 'ready' && !done && (
         <>
           <p className="panel-note">
             {mode === 'sudo'
@@ -216,7 +230,7 @@ function PanelRow({
       )}
 
       {/* FR-003: 토글을 켜면 곧바로 실행하지 않고 무엇을 하는지 보여주고 확인받는다. */}
-      {confirming && !isApplied && finding.fix.edit && (
+      {confirming && !done && finding.fix.edit && (
         <div className="panel-confirm" ref={confirmRef}>
           <p className="panel-confirm-title">아래 한 줄을 삭제합니다</p>
           <p className="panel-manual">
@@ -244,6 +258,8 @@ function PanelRow({
           적용했습니다. 원본은 {backupPath}에 있습니다. 토글을 다시 누르면 되돌립니다.
         </p>
       )}
+
+      {isResolved && <p className="panel-note">직접 수정해 해결된 항목입니다.</p>}
 
       {failure && <p className="panel-error">{failure}</p>}
     </li>
