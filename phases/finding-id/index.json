@@ -20,5 +20,6 @@
       "summary": "shell-rc(7종)·version-manager(2종) Finding id에서 ${lineNo}를 제거하고, missing-source에 source 대상 경로를 키로 추가했다. 남는 충돌은 각 어댑터에 추가한 createIdFactory()(파일 스캔 1회 범위의 로컬 카운터)가 2번째 발생부터 '#n' 순번 접미사를 붙여 해소한다 — 결정적이고 줄 위치에 의존하지 않는다. evidence.line/fix.edit.removeLine, homebrew.ts, 감지 규칙은 그대로. lint/build/test 통과(164 tests, finding-id 10건 포함)."
     }
   ],
-  "created_at": "2026-08-25T13:02:24+09:00"
+  "created_at": "2026-08-25T13:02:24+09:00",
+  "completed_at": "2026-08-25T13:04:17+09:00"
 }
