@@ -2,8 +2,9 @@
 // 어댑터는 이 인터페이스만 통해 외부 상태에 접근하며, child_process/fs에 직접 접근하지 않는다.
 
 import { execFile } from 'node:child_process'
-import { copyFile, readFile, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
+import { dirname } from 'node:path'
 import { promisify } from 'node:util'
 
 export interface ExecResult {
@@ -27,6 +28,8 @@ export interface DiagnosticHost {
 export interface FixHost extends DiagnosticHost {
   writeFile(path: string, content: string): Promise<void>
   copyFile(from: string, to: string): Promise<void>
+  /** 파일을 지운다. 없으면 아무것도 하지 않는다(예외를 던지지 않는다). */
+  removeFile(path: string): Promise<void>
   /** 백업 파일명의 타임스탬프에 쓴다. 테스트가 고정할 수 있도록 주입한다. */
   now(): Date
 }
@@ -60,8 +63,14 @@ export class NodeHost implements FixHost {
     await writeFile(path, content, 'utf-8')
   }
 
+  /** 백업 디렉터리(`~/.nosy/backups`)는 아직 없을 수 있다 — NodeSnapshotStore와 같은 방식으로 보장한다. */
   async copyFile(from: string, to: string): Promise<void> {
+    await mkdir(dirname(to), { recursive: true })
     await copyFile(from, to)
+  }
+
+  async removeFile(path: string): Promise<void> {
+    await rm(path, { force: true })
   }
 
   now(): Date {
@@ -111,6 +120,10 @@ export class FakeHost implements FixHost {
     const content = this.#files.get(from)
     if (content === undefined) throw new Error(`FakeHost: 복사할 원본이 없습니다 — ${from}`)
     this.#files.set(to, content)
+  }
+
+  async removeFile(path: string): Promise<void> {
+    this.#files.delete(path)
   }
 
   now(): Date {
