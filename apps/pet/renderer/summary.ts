@@ -39,41 +39,63 @@ export function scoreBar(score: number, hasError: boolean): BarSegment[] {
   })
 }
 
-/** 상세 패널의 한 행. `backupPath`가 있으면 이미 적용되어 되돌릴 수 있는 항목이다. */
+/** 상세 패널의 한 행. `backupPath`가 있으면 지금 적용된 상태라 되돌릴 수 있다. */
 export interface PanelItem {
   finding: Finding
   backupPath?: string
 }
 
-/** 적용에 성공한 항목의 기록. 재진단 결과에서 사라지므로 renderer가 따로 들고 있어야 한다. */
+/**
+ * fix를 한 번이라도 실행한 항목의 기록.
+ *
+ * 되돌린 뒤에도 지우지 않고 `reverted`로 표시만 바꾼다. 지워버리면, 되돌리기 응답과
+ * 재진단 결과(state)가 서로 다른 IPC로 도착하는 탓에 둘 사이 한 프레임 동안 그 항목이
+ * results에도 없고 이 기록에도 없어 행이 통째로 사라진다.
+ */
 export interface AppliedRecord {
   finding: Finding
   backupPath: string
+  reverted: boolean
 }
 
-const SEVERITY_ORDER: Record<string, number> = { error: 0, warn: 1, ok: 2 }
+/**
+ * 정렬 키. 같은 파일 안에서는 줄 번호 순으로 — 사용자가 rc 파일을 위에서 아래로 읽는 순서다.
+ * 줄 번호는 문자열 비교를 하므로 자리수를 맞춘다. 근거 파일이 없는 항목은 뒤로 보낸다.
+ */
+function sortKey(finding: Finding): string {
+  const { evidence } = finding
+
+  return evidence ? `${evidence.file}:${String(evidence.line).padStart(6, '0')}` : '~'
+}
 
 /**
  * 패널에 그릴 목록 (toggle-panel-spec FR-001).
  *
  * 적용에 성공한 항목은 그 문제가 해결되었으므로 재진단 결과에서 사라진다. 그대로 두면
  * 방금 고친 항목이 화면에서 증발해 되돌릴 방법이 없어지므로, `applied`에 남은 기록을
- * 목록 뒤에 붙여 "적용됨 · 되돌리기" 행으로 유지한다.
+ * 합쳐 행을 유지한다.
  *
- * 아직 적용하지 않은 항목은 심각한 것부터 보여준다 — 어댑터 등록 순서보다 severity가 먼저다.
+ * 순서는 severity가 아니라 파일·줄 기준이다 — 적용 전후로 같은 자리에 남아야 한다.
+ * 심각도로 정렬하면 고친 항목이 목록 안에서 갑자기 이동해 무슨 일이 일어났는지 읽히지 않는다.
+ * 가장 심각한 문제를 앞세우는 일은 말풍선이 이미 하고 있다.
  */
 export function panelItems(
   results: AdapterResult[],
   applied: Map<string, AppliedRecord>
 ): PanelItem[] {
-  const pending = results
+  const fromResults = results
     .flatMap((result) => result.findings)
     .filter((finding) => !applied.has(finding.id))
-    .sort((a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9))
 
-  const done = [...applied.values()].map(({ finding, backupPath }) => ({ finding, backupPath }))
+  const fromApplied = [...applied.values()].map((record) => record.finding)
 
-  return [...pending.map((finding) => ({ finding })), ...done]
+  return [...fromResults, ...fromApplied]
+    .sort((a, b) => sortKey(a).localeCompare(sortKey(b)))
+    .map((finding) => {
+      const record = applied.get(finding.id)
+
+      return record && !record.reverted ? { finding, backupPath: record.backupPath } : { finding }
+    })
 }
 
 /** 토글을 켤 수 있는 항목인지 (toggle-panel-spec FR-005). */

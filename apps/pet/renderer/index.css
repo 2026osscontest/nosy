@@ -292,9 +292,22 @@ body {
   border-top: 0;
 }
 
+/* 적용한 항목은 목록에서 자리를 옮기지 않는다(summary.ts panelItems 참조). 대신 한 번
+   깜빡여 방금 무엇이 바뀌었는지 알린다 — 부드러운 페이드 대신 steps()로 끊어 도트 톤을 지킨다. */
+@keyframes panel-row-mark {
+  0%,
+  45% {
+    background: var(--cream-shade);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
 /* 이미 적용한 항목은 남겨 두되 뒤로 물러나게 한다 — 되돌리기 경로는 유지해야 한다. */
 .panel-row[data-applied='true'] {
   opacity: 0.65;
+  animation: panel-row-mark 0.6s steps(4) 1;
 }
 
 .panel-row-head {

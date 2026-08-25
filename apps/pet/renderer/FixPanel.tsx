@@ -7,7 +7,7 @@
 // 안전장치는 여기서 새로 만들지 않는다. 실제 거부 판정은 packages/core/src/fix.ts가 하고,
 // 이 화면은 그 판정을 미리 보여주고(비활성 토글) 실행 전 확인을 받는 역할만 한다.
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { fixability, panelItems, scoreBar } from './summary'
 import type { AppliedRecord, PanelItem } from './summary'
 import type { Finding } from '@nosy/core'
@@ -49,7 +49,7 @@ export function FixPanel({ snapshot }: FixPanelProps) {
 
     if (result.ok && result.backupPath) {
       const backupPath = result.backupPath
-      setApplied((prev) => new Map(prev).set(finding.id, { finding, backupPath }))
+      setApplied((prev) => new Map(prev).set(finding.id, { finding, backupPath, reverted: false }))
     } else {
       setFailure({ id: finding.id, message: result.error ?? '알 수 없는 이유로 실패했습니다.' })
     }
@@ -64,10 +64,12 @@ export function FixPanel({ snapshot }: FixPanelProps) {
     setBusy(null)
 
     if (result.ok) {
+      // 기록을 지우지 않고 표시만 바꾼다 — 지우면 재진단 결과가 도착하기 전 한 프레임 동안
+      // 이 항목이 어디에도 없어 행이 사라졌다 다시 나타난다 (summary.ts AppliedRecord 참조).
       setApplied((prev) => {
-        const next = new Map(prev)
-        next.delete(finding.id)
-        return next
+        const record = prev.get(finding.id)
+        if (!record) return prev
+        return new Map(prev).set(finding.id, { ...record, reverted: true })
       })
     } else {
       setFailure({ id: finding.id, message: result.error ?? '알 수 없는 이유로 실패했습니다.' })
@@ -161,6 +163,13 @@ function PanelRow({
   const { finding, backupPath } = item
   const mode = fixability(finding)
   const isApplied = backupPath !== undefined
+  const confirmRef = useRef<HTMLDivElement>(null)
+
+  // 확인 화면은 행 아래로 펼쳐지므로 목록이 길면 화면 밖에서 열린다. 사용자가 방금 누른
+  // 토글의 결과를 찾아 스크롤하게 두지 않는다.
+  useEffect(() => {
+    if (confirming) confirmRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [confirming])
 
   return (
     <li className="panel-row" data-severity={finding.severity} data-applied={isApplied}>
@@ -208,7 +217,7 @@ function PanelRow({
 
       {/* FR-003: 토글을 켜면 곧바로 실행하지 않고 무엇을 하는지 보여주고 확인받는다. */}
       {confirming && !isApplied && finding.fix.edit && (
-        <div className="panel-confirm">
+        <div className="panel-confirm" ref={confirmRef}>
           <p className="panel-confirm-title">아래 한 줄을 삭제합니다</p>
           <p className="panel-manual">
             {finding.fix.edit.file}:{finding.fix.edit.removeLine}
