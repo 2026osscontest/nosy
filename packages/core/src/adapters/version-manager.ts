@@ -61,7 +61,9 @@ async function checkPathPriority(host: DiagnosticHost, findings: Finding[]): Pro
       severity: 'warn',
       title: 'nvm shim이 시스템 바이너리에 밀려 있습니다',
       cause: `nvm이 활성화한 버전 디렉터리("${nvmBin}")가 PATH에서 시스템 바이너리 디렉터리보다 뒤에 있어, nvm으로 설정한 버전 대신 시스템 기본 버전이 사용될 수 있습니다.`,
-      fix: { description: 'nvm이 기본 버전을 PATH 맨 앞에 두도록 재설정하세요.', command: 'nvm use --default' }
+      // `nvm use`에 `--default` 옵션은 없다. 기본 별칭은 인자로 넘긴다 —
+      // `--default`를 넘기면 버전 이름으로 해석되어 "is not yet installed" 에러가 난다.
+      fix: { description: 'nvm이 기본 버전을 PATH 맨 앞에 두도록 재설정하세요.', command: 'nvm use default' }
     })
   }
 }
@@ -69,6 +71,15 @@ async function checkPathPriority(host: DiagnosticHost, findings: Finding[]): Pro
 function normalizeVersionTag(value: string): string {
   const trimmed = value.trim()
   return trimmed.startsWith('v') ? trimmed.slice(1) : trimmed
+}
+
+/**
+ * 버전 파일의 첫 줄만 읽고 후행 주석을 떼어낸다 — nvm/pyenv가 실제로 해석하는 범위다.
+ * `.python-version`은 여러 버전을 여러 줄로 담을 수 있고(`pyenv local 3.11.4 3.12.0`),
+ * 이때 활성 버전은 첫 줄이다. 파일 전체를 요구 버전으로 보면 멀쩡한 설정을 불일치로 판정한다.
+ */
+function firstVersionLine(content: string): string {
+  return (content.split('\n')[0] ?? '').replace(/#.*$/, '').trim()
 }
 
 function versionSatisfies(required: string, active: string): boolean {
@@ -89,7 +100,7 @@ async function checkNvmrcVersion(host: DiagnosticHost, findings: Finding[]): Pro
   const content = await host.readFile('.nvmrc')
   if (content === null) return
 
-  const required = normalizeVersionTag(content)
+  const required = normalizeVersionTag(firstVersionLine(content))
   if (!/^\d/.test(required)) return
 
   const result = await host.exec('node', ['-v'])
@@ -113,7 +124,7 @@ async function checkPythonVersion(host: DiagnosticHost, findings: Finding[]): Pr
   const content = await host.readFile('.python-version')
   if (content === null) return
 
-  const required = content.trim()
+  const required = firstVersionLine(content)
   if (!/^\d/.test(required)) return
 
   let result = await host.exec('python3', ['--version'])
@@ -133,7 +144,12 @@ async function checkPythonVersion(host: DiagnosticHost, findings: Finding[]): Pr
     title: '.python-version이 요구하는 버전과 실제 활성 버전이 다릅니다',
     cause: `.python-version은 Python "${required}"을(를) 요구하지만 실제 활성 버전은 "${active}"입니다.`,
     evidence: { file: '.python-version', line: 1, excerpt: required },
-    fix: { description: '.python-version이 요구하는 버전으로 pyenv를 전환하세요.', command: 'pyenv local' }
+    // 인자 없는 `pyenv local`은 현재 로컬 버전을 출력만 하고 아무것도 고치지 않는다.
+    // 불일치의 흔한 원인은 요구 버전이 아직 설치되지 않은 것이므로 설치를 권한다.
+    fix: {
+      description: `.python-version이 요구하는 ${required} 버전을 설치하세요. 이미 설치돼 있다면 pyenv shim이 PATH 앞에 있는지 확인하세요.`,
+      command: `pyenv install -s ${required}`
+    }
   })
 }
 
@@ -152,6 +168,27 @@ function createIdFactory(): (base: string) => string {
   }
 }
 
+/** 블록을 닫기만 하는 줄. 초기화 뒤에 "이어지는 다른 설정"으로 세지 않는다. */
+const BLOCK_TERMINATOR = /^(fi|done|esac|\}|\)|;;|else|then)$/
+
+/**
+ * `lineNo` 뒤에 그 매니저와 무관한 설정 줄이 남아 있는지 본다.
+ * 같은 매니저의 다른 초기화 줄과 블록을 닫는 줄은 오배치의 근거가 아니다 —
+ * nvm 공식 설치 스크립트는 `nvm.sh` 뒤에 `bash_completion` 줄을 덧붙이고,
+ * pyenv 공식 문서는 `pyenv init` 뒤에 `pyenv virtualenv-init`을 두게 한다.
+ * 이 둘을 오배치로 보면 표준 설치 상태가 그대로 오탐이 된다.
+ */
+function hasUnrelatedLineAfter(
+  lines: { line: string; lineNo: number }[],
+  lineNo: number,
+  manager: RegExp
+): boolean {
+  return lines.some(
+    ({ line, lineNo: n }) =>
+      n > lineNo && !manager.test(line) && !BLOCK_TERMINATOR.test(line.trim())
+  )
+}
+
 async function checkRcInitPlacement(host: DiagnosticHost, findings: Finding[]): Promise<void> {
   const files: { filePath: string; lines: { line: string; lineNo: number }[] }[] = []
 
@@ -167,15 +204,13 @@ async function checkRcInitPlacement(host: DiagnosticHost, findings: Finding[]): 
 
   for (const { filePath, lines } of files) {
     const nextId = createIdFactory()
-    const lastLine = lines.at(-1)
-    const lastLineNo = lastLine ? lastLine.lineNo : -1
 
     for (const { line, lineNo } of lines) {
       const trimmed = line.trim()
 
       if (trimmed.includes('nvm.sh')) {
         hasNvmInitAnywhere = true
-        if (lineNo !== lastLineNo) {
+        if (hasUnrelatedLineAfter(lines, lineNo, /nvm/i)) {
           findings.push({
             id: nextId(`version-manager:${filePath}:misplaced-init:nvm`),
             adapter: 'version-manager',
@@ -190,7 +225,7 @@ async function checkRcInitPlacement(host: DiagnosticHost, findings: Finding[]): 
 
       if (trimmed.includes('pyenv init')) {
         hasPyenvInitAnywhere = true
-        if (lineNo !== lastLineNo) {
+        if (hasUnrelatedLineAfter(lines, lineNo, /pyenv/i)) {
           findings.push({
             id: nextId(`version-manager:${filePath}:misplaced-init:pyenv`),
             adapter: 'version-manager',

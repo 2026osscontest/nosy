@@ -24,8 +24,13 @@ const ABSENT_REASON = 'Homebrew가 설치되어 있지 않습니다.'
 const NO_JSON_REASON =
   '설치된 Homebrew가 `brew doctor --json`을 지원하지 않습니다. Homebrew를 최신 버전으로 업데이트하세요.'
 
-/** 파괴적 명령 판정 키워드. 단어 경계로 매칭한다 — `brew install charm`을 `rm`으로 오판하지 않기 위함이다. */
-const DESTRUCTIVE_PATTERN = /\b(cleanup|uninstall|rm|remove|prune)\b/
+/**
+ * 파괴적 명령 판정 키워드. 단어 경계로 매칭한다 — `brew install charm`을 `rm`으로 오판하지 않기 위함이다.
+ * `clean`은 `cleanup`과 별도로 필요하다: brew doctor의 check_git_status가 내놓는
+ * `git -C <tap> stash -u && git -C <tap> clean -d -f`는 tap의 추적되지 않는 파일을
+ * 되돌릴 수 없게 지우는데, `cleanup`만으로는 걸러지지 않는다.
+ */
+const DESTRUCTIVE_PATTERN = /\b(cleanup|clean|uninstall|rm|remove|prune)\b/
 
 /**
  * `brew doctor --json`을 실행해 파싱한다.
