@@ -38,3 +38,46 @@ export function scoreBar(score: number, hasError: boolean): BarSegment[] {
     return hasError && index === filled - 1 ? 'hot' : 'on'
   })
 }
+
+/** 상세 패널의 한 행. `backupPath`가 있으면 이미 적용되어 되돌릴 수 있는 항목이다. */
+export interface PanelItem {
+  finding: Finding
+  backupPath?: string
+}
+
+/** 적용에 성공한 항목의 기록. 재진단 결과에서 사라지므로 renderer가 따로 들고 있어야 한다. */
+export interface AppliedRecord {
+  finding: Finding
+  backupPath: string
+}
+
+const SEVERITY_ORDER: Record<string, number> = { error: 0, warn: 1, ok: 2 }
+
+/**
+ * 패널에 그릴 목록 (toggle-panel-spec FR-001).
+ *
+ * 적용에 성공한 항목은 그 문제가 해결되었으므로 재진단 결과에서 사라진다. 그대로 두면
+ * 방금 고친 항목이 화면에서 증발해 되돌릴 방법이 없어지므로, `applied`에 남은 기록을
+ * 목록 뒤에 붙여 "적용됨 · 되돌리기" 행으로 유지한다.
+ *
+ * 아직 적용하지 않은 항목은 심각한 것부터 보여준다 — 어댑터 등록 순서보다 severity가 먼저다.
+ */
+export function panelItems(
+  results: AdapterResult[],
+  applied: Map<string, AppliedRecord>
+): PanelItem[] {
+  const pending = results
+    .flatMap((result) => result.findings)
+    .filter((finding) => !applied.has(finding.id))
+    .sort((a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9))
+
+  const done = [...applied.values()].map(({ finding, backupPath }) => ({ finding, backupPath }))
+
+  return [...pending.map((finding) => ({ finding })), ...done]
+}
+
+/** 토글을 켤 수 있는 항목인지 (toggle-panel-spec FR-005). */
+export function fixability(finding: Finding): 'ready' | 'sudo' | 'manual' {
+  if (finding.fix.needsSudo === true) return 'sudo'
+  return finding.fix.edit ? 'ready' : 'manual'
+}

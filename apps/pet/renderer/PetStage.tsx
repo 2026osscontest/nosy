@@ -4,10 +4,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { PetView } from './PetView'
 import { Bubble } from './Bubble'
+import { FixPanel } from './FixPanel'
 import type { PetSnapshot } from '../shared/ipc'
 
 /** 이보다 적게 움직였으면 드래그가 아니라 클릭으로 본다 (pet-window-spec P4). */
 const CLICK_SLOP_PX = 4
+
+/**
+ * 펫을 누를 때마다 도는 3단계 (docs/UI_GUIDE.md "상호작용":
+ * 클릭 → 말풍선 요약 → 재클릭 → 상세 패널 확장).
+ */
+type View = 'closed' | 'bubble' | 'panel'
+
+const NEXT_VIEW: Record<View, View> = { closed: 'bubble', bubble: 'panel', panel: 'closed' }
 
 interface DragState {
   lastX: number
@@ -21,7 +30,7 @@ interface PetStageProps {
 }
 
 export function PetStage({ snapshot }: PetStageProps) {
-  const [bubbleOpen, setBubbleOpen] = useState(false)
+  const [view, setView] = useState<View>('closed')
   const [dragging, setDragging] = useState(false)
   const drag = useRef<DragState | null>(null)
 
@@ -34,8 +43,10 @@ export function PetStage({ snapshot }: PetStageProps) {
   }, [])
 
   // UI_GUIDE "캐릭터 상태 4종": alarmed는 말풍선을 자동으로 띄운다.
+  // 이미 무언가 열려 있으면 건드리지 않는다 — fix 적용 후 재진단으로 alarmed가 다시 오는데,
+  // 그때 패널이 말풍선으로 접히면 방금 고친 항목의 되돌리기 버튼이 사라진다.
   useEffect(() => {
-    if (petState === 'alarmed') setBubbleOpen(true)
+    if (petState === 'alarmed') setView((current) => (current === 'closed' ? 'bubble' : current))
   }, [petState])
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>): void => {
@@ -72,13 +83,14 @@ export function PetStage({ snapshot }: PetStageProps) {
     if (!state) return
 
     if (Math.abs(state.movedX) <= CLICK_SLOP_PX && Math.abs(state.movedY) <= CLICK_SLOP_PX) {
-      setBubbleOpen((open) => !open)
+      setView((current) => NEXT_VIEW[current])
     }
   }
 
   return (
     <div className="pet-stage">
-      {/* 관통을 끄는 범위는 펫과 말풍선을 함께 감싼 이 영역이다 — 나중에 상세 패널도 여기 들어간다. */}
+      {/* 관통을 끄는 범위는 펫·말풍선·상세 패널을 함께 감싼 이 영역이다. 패널이 이 바깥에
+          있으면 클릭이 관통되어 토글이 눌리지 않는다. */}
       <div
         className="pet-interactive"
         onPointerEnter={() => window.nosy.setClickThrough(false)}
@@ -87,7 +99,8 @@ export function PetStage({ snapshot }: PetStageProps) {
           if (!drag.current) window.nosy.setClickThrough(true)
         }}
       >
-        {bubbleOpen && <Bubble snapshot={snapshot} />}
+        {view === 'bubble' && <Bubble snapshot={snapshot} />}
+        {view === 'panel' && <FixPanel snapshot={snapshot} />}
 
         <div
           className="pet-anchor"

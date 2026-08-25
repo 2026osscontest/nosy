@@ -8,10 +8,14 @@ const dirname = fileURLToPath(new URL('.', import.meta.url))
 
 export function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
-    // 펫보다 크게 잡는다 — 말풍선이 창 밖으로 잘리면 안 된다. 남는 영역은
+    // 펫보다 크게 잡는다 — 말풍선과 상세 패널이 창 밖으로 잘리면 안 된다. 남는 영역은
     // 클릭 관통(FR-002)으로 비워 두므로 아래 창을 가리지 않는다.
+    //
+    // 높이는 가장 큰 상태(펫 + 상세 패널)를 기준으로 잡아 두고 줄이지 않는다. 패널을 열 때
+    // setSize로 늘리는 방법도 있지만, 그러면 창이 커지는 방향에 따라 펫이 화면에서 튀어
+    // 사용자가 끌어다 놓은 위치가 흐트러진다.
     width: 380,
-    height: 300,
+    height: 560,
     transparent: true,
     frame: false,
     alwaysOnTop: true,

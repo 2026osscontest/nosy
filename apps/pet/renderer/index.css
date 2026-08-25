@@ -101,7 +101,8 @@ body {
 
    .bubble 자신에게는 clip-path를 걸지 않는다 — 걸면 바깥으로 밀어낸
    하드 섀도까지 잘라낸다. */
-.bubble {
+.bubble,
+.panel {
   --shape: polygon(
     var(--u) 0%, calc(100% - var(--u)) 0%,
     calc(100% - var(--u)) var(--u), 100% var(--u),
@@ -111,14 +112,23 @@ body {
     0% var(--u), var(--u) var(--u)
   );
   position: relative;
-  width: calc(232px * var(--k));
   font-family: 'Galmuri11', monospace;
   /* 비트맵 폰트라 안티에일리어싱을 끄지 않으면 가장자리가 흐려진다. */
   -webkit-font-smoothing: none;
   letter-spacing: 0;
 }
 
-.bubble::before {
+.bubble {
+  width: calc(232px * var(--k));
+}
+
+/* 말풍선보다 넓다 — 파일 전체 경로와 원문 발췌가 한 줄에 들어가야 한다. */
+.panel {
+  width: calc(308px * var(--k));
+}
+
+.bubble::before,
+.panel::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -129,18 +139,22 @@ body {
 }
 
 .bubble-frame,
-.bubble-face {
+.bubble-face,
+.panel-frame,
+.panel-face {
   clip-path: var(--shape);
 }
 
-.bubble-frame {
+.bubble-frame,
+.panel-frame {
   position: relative;
   z-index: 1;
   background: var(--ink);
   padding: var(--b);
 }
 
-.bubble-face {
+.bubble-face,
+.panel-face {
   background: var(--cream);
   padding: var(--pad);
 }
@@ -198,4 +212,228 @@ body {
   font-size: var(--t);
   line-height: var(--lh);
   opacity: 0.7;
+}
+
+/* ── 상세 패널 ────────────────────────────────────────────
+   말풍선과 같은 프레임(위 .bubble 규칙을 공유한다)에 내용만 상세로 바꾼 것이다.
+   치수는 전부 11px 격자의 정수배 — 여기만 어긋나면 나란히 놓인 말풍선과 대비되어 바로 티가 난다. */
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  gap: calc(6px * var(--k));
+}
+
+.panel-score {
+  font-weight: 700;
+  font-size: calc(var(--t) * 2);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-grade {
+  font-weight: 700;
+  font-size: var(--t);
+  line-height: 1;
+}
+
+.panel-grade[data-grade='정상'] { color: var(--ink); opacity: 0.6; }
+.panel-grade[data-grade='주의'] { color: var(--coral); }
+.panel-grade[data-grade='문제 있음'] { color: var(--alarm); }
+
+.panel-count {
+  margin-left: auto;
+  font-size: var(--t);
+  line-height: 1;
+  opacity: 0.6;
+}
+
+.panel-bar {
+  display: flex;
+  gap: calc(2px * var(--k));
+  margin: calc(8px * var(--k)) 0 calc(11px * var(--k));
+}
+
+.panel-bar i {
+  flex: 1;
+  height: calc(8px * var(--k));
+  background: var(--cream-shade);
+}
+
+.panel-bar i[data-fill='on'] { background: var(--coral); }
+.panel-bar i[data-fill='hot'] { background: var(--alarm); }
+
+.panel-empty {
+  margin: 0;
+  font-size: var(--t);
+  line-height: var(--lh);
+}
+
+/* 스크롤 막대가 뜨면 도트 톤이 깨진다. 스크롤은 되게 두고 막대만 숨긴다. */
+.panel-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: calc(352px * var(--k));
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.panel-list::-webkit-scrollbar {
+  display: none;
+}
+
+.panel-row {
+  padding: calc(9px * var(--k)) 0;
+  border-top: calc(1px * var(--k)) solid var(--cream-shade);
+}
+
+.panel-row:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* 이미 적용한 항목은 남겨 두되 뒤로 물러나게 한다 — 되돌리기 경로는 유지해야 한다. */
+.panel-row[data-applied='true'] {
+  opacity: 0.65;
+}
+
+.panel-row-head {
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--k));
+}
+
+.panel-dot {
+  flex: none;
+  width: calc(6px * var(--k));
+  height: calc(6px * var(--k));
+  background: var(--coral);
+}
+
+.panel-row[data-severity='error'] .panel-dot {
+  background: var(--alarm);
+}
+
+.panel-row-title {
+  flex: 1;
+  margin: 0;
+  font-weight: 700;
+  font-size: var(--t);
+  line-height: var(--lh);
+}
+
+/* 도트 토글. 트랙도 노브도 직각 사각형이라야 캐릭터와 같은 문법으로 읽힌다.
+   전환도 steps()로 끊어 아날로그 슬라이드가 되지 않게 한다. */
+.panel-switch {
+  box-sizing: border-box;
+  flex: none;
+  width: calc(24px * var(--k));
+  height: calc(16px * var(--k));
+  padding: calc(2px * var(--k));
+  border: calc(2px * var(--k)) solid var(--ink);
+  background: var(--cream-shade);
+  cursor: pointer;
+}
+
+.panel-switch i {
+  display: block;
+  width: calc(8px * var(--k));
+  height: calc(8px * var(--k));
+  background: var(--ink);
+  transition: transform 0.12s steps(3);
+}
+
+.panel-switch[data-on='true'] {
+  background: var(--coral);
+}
+
+.panel-switch[data-on='true'] i {
+  transform: translateX(calc(8px * var(--k)));
+}
+
+/* needsSudo와 자동 수정 불가 항목 (toggle-panel-spec FR-005). */
+.panel-switch:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.panel-path,
+.panel-manual {
+  margin: calc(5px * var(--k)) 0 0;
+  font-family: 'GalmuriMono11', monospace;
+  font-size: var(--t);
+  line-height: var(--lh);
+  opacity: 0.7;
+  word-break: break-all;
+}
+
+.panel-excerpt {
+  margin: calc(3px * var(--k)) 0 0;
+  padding: calc(3px * var(--k)) calc(6px * var(--k));
+  background: var(--cream-shade);
+  font-family: 'GalmuriMono11', monospace;
+  font-size: var(--t);
+  line-height: var(--lh);
+  word-break: break-all;
+}
+
+.panel-note {
+  margin: calc(5px * var(--k)) 0 0;
+  font-size: var(--t);
+  line-height: var(--lh);
+  opacity: 0.75;
+}
+
+/* 실행 전 확인 (FR-003). 무엇이 실행되는지 여기서 전부 보여준다. */
+.panel-confirm {
+  margin-top: calc(8px * var(--k));
+  padding: calc(8px * var(--k));
+  border: calc(2px * var(--k)) solid var(--ink);
+}
+
+.panel-confirm-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: var(--t);
+  line-height: var(--lh);
+}
+
+.panel-actions {
+  display: flex;
+  gap: calc(6px * var(--k));
+  margin-top: calc(8px * var(--k));
+}
+
+.panel-btn {
+  box-sizing: border-box;
+  margin-top: calc(6px * var(--k));
+  padding: calc(3px * var(--k)) calc(9px * var(--k));
+  border: calc(2px * var(--k)) solid var(--ink);
+  background: var(--cream);
+  color: var(--ink);
+  font-family: 'Galmuri11', monospace;
+  font-size: var(--t);
+  line-height: var(--lh);
+  -webkit-font-smoothing: none;
+  cursor: pointer;
+}
+
+.panel-actions .panel-btn {
+  margin-top: 0;
+}
+
+.panel-btn[data-kind='go'] {
+  background: var(--coral);
+}
+
+.panel-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.panel-error {
+  margin: calc(6px * var(--k)) 0 0;
+  font-size: var(--t);
+  line-height: var(--lh);
+  color: var(--alarm);
 }
