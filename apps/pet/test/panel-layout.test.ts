@@ -1,13 +1,14 @@
 // 창을 어느 쪽으로 펼칠지와 그때의 창 사각형.
 //
 // 창 높이를 콘텐츠보다 크게 잡으면 그 여유분이 곧 드래그 상한선이 된다 — 펫은 창 하단에
-// 붙어 있고, macOS는 창 상단을 작업 영역 위로 올려주지 않는다. 그래서 창은 renderer가 잰
-// 콘텐츠 높이에 딱 맞춘다. 위로 펼칠 자리가 없으면 아래로 펼치고 펫을 창 위쪽에 붙인다.
+// 붙어 있고, macOS는 보이는 창의 top을 작업 영역 아래로 강제하기 때문이다(실측: 요청한 y가
+// 무엇이든 실제 y는 workArea.y). 그래서 창은 renderer가 잰 콘텐츠 높이에 딱 맞춘다.
+// 위로 펼칠 자리가 없으면 아래로 펼치고 펫을 창 위쪽에 붙인다.
 //
 // 어느 방향으로 펼치든 펫의 화면상 위치는 변하지 않아야 한다. 사용자가 끌어다 놓은 자리다.
 
 import { describe, expect, it } from 'vitest'
-import { INITIAL_HEIGHT, nextBounds, petScreenY } from '../main/panel-layout'
+import { INITIAL_HEIGHT, clampY, nextBounds, petScreenY } from '../main/panel-layout'
 import type { Rect } from '../main/panel-layout'
 
 /** 넉넉한 화면. 위아래 어느 쪽으로도 펼칠 수 있다. */
@@ -149,5 +150,36 @@ describe('nextBounds', () => {
 
     expect(next.bounds.x).toBe(current.x)
     expect(next.bounds.width).toBe(current.width)
+  })
+})
+
+// macOS는 보이는 창의 top을 작업 영역 아래로 강제하지만(실측: 요청 y와 무관하게 workArea.y),
+// 아래쪽은 막지 않는다. 그대로 두면 펫을 아래로 끌어 화면 밖으로 내보내 잃어버릴 수 있고,
+// 위만 막히니 드래그가 비대칭으로 느껴진다.
+describe('clampY', () => {
+  const win = (y: number, height = INITIAL_HEIGHT): Rect => ({ x: 500, y, width: 380, height })
+
+  it('작업 영역 안이면 그대로 둔다', () => {
+    expect(clampY(win(400), ROOMY)).toBe(400)
+  })
+
+  it('아래로 끌어도 창이 작업 영역을 벗어나지 않는다', () => {
+    const clamped = clampY(win(5000), ROOMY)
+
+    expect(clamped + INITIAL_HEIGHT).toBeLessThanOrEqual(ROOMY.y + ROOMY.height)
+  })
+
+  it('위로 끌어도 작업 영역 위로 올라가지 않는다', () => {
+    expect(clampY(win(-500), ROOMY)).toBe(ROOMY.y)
+  })
+
+  // 패널을 펼치면 창이 화면보다 높을 수 있다. 이때는 가둘 수 없으니 위에 붙인다.
+  it('창이 작업 영역보다 높으면 위에 붙인다', () => {
+    expect(clampY(win(500, ROOMY.height + 200), ROOMY)).toBe(ROOMY.y)
+  })
+
+  // setPosition에 소수를 넘기면 main 프로세스가 통째로 죽는다.
+  it('정수를 준다', () => {
+    expect(Number.isInteger(clampY(win(400.5), ROOMY))).toBe(true)
   })
 })

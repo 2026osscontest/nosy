@@ -1,9 +1,13 @@
 // 창을 어느 쪽으로 펼칠지와 그때의 창 사각형. Electron을 import하지 않는 순수 계산이다.
 //
-// 창 높이를 콘텐츠보다 크게 잡으면 그 여유분이 곧 드래그 상한선이 된다. 펫은 창 하단에
-// 붙어 있어서, 펫 위쪽 빈 영역이 화면 천장에 걸리는 순간 펫이 더 올라가지 못하기 때문이다
-// — macOS는 창 상단을 작업 영역 위로 올려주지 않는다. 창을 560으로 잡았을 때는 화면 중간에서,
-// 말풍선 자리만 남긴 300일 때도 220px 위에서 멈췄다.
+// 창 높이를 콘텐츠보다 크게 잡으면 그 여유분이 곧 드래그 상한선이 된다.
+//
+// macOS는 **보이는** 창의 top을 작업 영역 아래로 강제한다. 실측 결과 요청한 y가 무엇이든
+// (-100, -20, 0, 20 전부) 실제 y는 workArea.y로 고정됐다. show() 전에는 제약이 없어서
+// setBounds만 시험해 보면 제약이 없는 것처럼 보이므로 속기 쉽다.
+//
+// 펫은 창 하단에 붙어 있으므로, 창이 높을수록 펫의 상한이 그만큼 내려간다. 창을 560으로
+// 잡았을 때는 화면 중간에서, 말풍선 자리만 남긴 300일 때도 220px 위에서 멈췄다.
 //
 // 그래서 높이를 상수로 두지 않는다. renderer가 실제 콘텐츠 높이를 재서 보내고 창은 딱 그만큼만
 // 잡는다. 펫만 떠 있으면 창도 펫 크기라 상한선이 사라진다.
@@ -36,6 +40,20 @@ function petOffset(placement: Placement, height: number): number {
 /** 펫 이미지의 화면상 top 좌표. 창을 어떻게 늘리든 이 값이 유지되어야 한다. */
 export function petScreenY(bounds: Rect, placement: Placement): number {
   return bounds.y + petOffset(placement, bounds.height)
+}
+
+/**
+ * 창을 작업 영역 안에 가둔 세로 위치.
+ *
+ * 위쪽은 macOS가 알아서 막지만 아래쪽은 막지 않아, 펫을 아래로 끌면 화면 밖으로 나가
+ * 사라진다. 한쪽만 막히면 드래그가 비대칭으로 느껴지고 펫을 잃어버릴 수도 있다.
+ *
+ * 창이 작업 영역보다 높으면(패널을 펼친 상태) 가둘 수 없으므로 위에 붙인다.
+ */
+export function clampY(bounds: Rect, workArea: Rect): number {
+  const lowest = workArea.y + workArea.height - bounds.height
+
+  return Math.round(Math.min(Math.max(bounds.y, workArea.y), Math.max(workArea.y, lowest)))
 }
 
 /**

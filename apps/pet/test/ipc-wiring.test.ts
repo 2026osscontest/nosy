@@ -27,8 +27,13 @@ vi.mock('electron', () => ({
     on: mocks.rendererOn,
     removeListener: mocks.removeListener
   },
-  ipcMain: { handle: mocks.handle, on: mocks.mainOn }
+  ipcMain: { handle: mocks.handle, on: mocks.mainOn },
+  // 드래그는 펫이 화면 밖으로 나가지 않게 작업 영역을 본다 (main/panel-layout.ts clampY).
+  screen: { getDisplayMatching: () => ({ workArea: WORK_AREA }) }
 }))
+
+/** 넉넉한 작업 영역 — 이 테스트들은 가두기 자체가 아니라 배선을 본다. */
+const WORK_AREA = { x: 0, y: 25, width: 1440, height: 875 }
 
 /** preload를 한 번 로드해 contextBridge에 넘어간 API 객체를 꺼낸다. */
 async function loadBridge() {
@@ -77,7 +82,8 @@ function fakeWindow(sent: SentMessage[]) {
       send: (channel: string, payload: PetSnapshot) => sent.push({ channel, payload })
     },
     setIgnoreMouseEvents: vi.fn(),
-    getPosition: vi.fn(() => [100, 200]),
+    getBounds: vi.fn(() => ({ x: 100, y: 200, width: 380, height: 88 })),
+    setBounds: vi.fn(),
     setPosition: vi.fn(),
     isDestroyed: () => false
   } as unknown as BrowserWindow

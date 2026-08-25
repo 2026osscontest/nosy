@@ -16,7 +16,7 @@ import {
 import type { Finding, FixHost, SnapshotStore } from '@nosy/core'
 import { CHANNEL, buildSnapshot, thinkingSnapshot } from '../shared/ipc'
 import type { DiagnosticScope, FixResult, PanelPlacement, PetSnapshot } from '../shared/ipc'
-import { nextBounds } from './panel-layout'
+import { clampY, nextBounds } from './panel-layout'
 
 export interface DiagnosticsDeps {
   /**
@@ -136,8 +136,13 @@ export function registerIpcHandlers(
     // renderer가 정수를 보내더라도 여기서 한 번 더 막는다.
     if (!Number.isFinite(dx) || !Number.isFinite(dy)) return
 
-    const [x, y] = window.getPosition()
-    window.setPosition(Math.round(x + dx), Math.round(y + dy))
+    const bounds = window.getBounds()
+    const moved = { ...bounds, x: bounds.x + dx, y: bounds.y + dy }
+    const { workArea } = screen.getDisplayMatching(bounds)
+
+    // 위쪽은 macOS가 알아서 막는다. 아래쪽은 막지 않아 그대로 두면 펫이 화면 밖으로 나가
+    // 사라지므로 여기서 가둔다 — 한쪽만 막히면 드래그가 비대칭으로 느껴진다.
+    window.setPosition(Math.round(moved.x), clampY(moved, workArea))
   })
 
   ipcMain.handle(CHANNEL.applyFix, async (_event, findingId: string): Promise<FixResult> => {
