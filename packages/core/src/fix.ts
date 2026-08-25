@@ -4,6 +4,7 @@
 // `nvm use`처럼 셸 함수라 execFile로 실행할 수 없고, 임의 셸 문자열 실행은 ADR-008의
 // 안전 경계를 넘으므로 이 엔진은 명령을 실행하지 않는다.
 
+import { basename, dirname, join } from 'node:path'
 import type { FixHost } from './host.js'
 import type { Finding } from './types.js'
 
@@ -38,6 +39,14 @@ function formatStamp(date: Date): string {
     `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}` +
     `-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
   )
+}
+
+/**
+ * ADR-006과 같은 이유로 백업도 홈의 앱 디렉터리에 모은다 — 사용자가 직접 열어볼 수 있고,
+ * fix를 누를 때마다 원본 옆(`~/.zshrc.bak.<시각>`)에 파일이 쌓이지 않는다.
+ */
+function backupDir(host: FixHost): string {
+  return join(host.homedir, '.nosy', 'backups')
 }
 
 export async function applyFix(host: FixHost, finding: Finding): Promise<FixOutcome> {
@@ -75,7 +84,7 @@ export async function applyFix(host: FixHost, finding: Finding): Promise<FixOutc
   }
 
   // ADR-008 ②: 파일 수정은 반드시 백업 후에 한다.
-  const backupPath = `${edit.file}.bak.${formatStamp(host.now())}`
+  const backupPath = join(backupDir(host), `${basename(edit.file)}.bak.${formatStamp(host.now())}`)
   try {
     await host.copyFile(edit.file, backupPath)
   } catch {
@@ -99,7 +108,12 @@ export async function revertFix(host: FixHost, finding: Finding, backupPath: str
   }
 
   // 호출자가 임의 경로를 넘겨 아무 파일이나 덮어쓰는 것을 막는다.
-  if (!backupPath.startsWith(`${edit.file}.bak.`)) {
+  // 백업이 한자리에 모이면서 디렉터리 검사만으로는 부족해졌다 — 파일명이 이 원본에서 온 것인지도 본다.
+  // (`.zshrc`의 백업과 `.bashrc`의 백업이 같은 디렉터리에 있다.)
+  const isOwnBackup =
+    dirname(backupPath) === backupDir(host) &&
+    basename(backupPath).startsWith(`${basename(edit.file)}.bak.`)
+  if (!isOwnBackup) {
     return { ok: false, error: `${edit.file}의 백업 파일이 아니므로 복원하지 않았습니다 — ${backupPath}` }
   }
 
@@ -111,8 +125,12 @@ export async function revertFix(host: FixHost, finding: Finding, backupPath: str
   try {
     await host.writeFile(edit.file, content)
   } catch {
+    // 복원에 실패했다면 파일은 아직 수정된 상태다. 백업까지 지우면 되돌릴 길이 사라진다.
     return { ok: false, error: `백업을 복원하지 못했습니다 — ${edit.file}` }
   }
+
+  // 파일이 원본 상태로 돌아왔으므로 이 백업은 더 이상 쓸 데가 없다. 놔두면 계속 쌓인다.
+  await host.removeFile(backupPath)
 
   return { ok: true, backupPath }
 }

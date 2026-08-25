@@ -54,7 +54,8 @@
     },
     {
       "dir": "backup-location",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-08-25T13:29:29+09:00"
     }
   ]
 }
