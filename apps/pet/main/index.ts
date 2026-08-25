@@ -22,7 +22,7 @@ app.whenReady().then(() => {
   })
 
   retained.push(createTray(window, runner))
-  startScheduler(window)
+  startScheduler(runner)
 })
 
 // 빈 핸들러가 필요하다 — 리스너가 하나도 없으면 Electron이 기본 동작으로 앱을 종료한다.
