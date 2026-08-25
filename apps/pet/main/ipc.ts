@@ -110,16 +110,20 @@ export function registerIpcHandlers(
   })
 
   /**
-   * 패널을 펼칠 방향은 화면 경계를 봐야 정해지므로 renderer가 결정할 수 없다.
-   * 창을 늘리고, 어느 쪽으로 늘렸는지 알려준다 — renderer는 그 방향에 맞춰 펫과 패널의
+   * 펼칠 방향은 화면 경계를 봐야 정해지므로 renderer가 결정할 수 없다. 창을 콘텐츠 높이에
+   * 맞추고 어느 쪽으로 펼쳤는지 알려준다 — renderer는 그 방향에 맞춰 펫과 말풍선·패널의
    * 위아래 순서를 뒤집는다.
    */
   let placement: PanelPlacement = 'above'
 
-  ipcMain.handle(CHANNEL.setPanelOpen, (_event, open: boolean): PanelPlacement => {
+  ipcMain.handle(CHANNEL.setContentHeight, (_event, height: number): PanelPlacement => {
+    // 소수나 NaN이 setBounds에 닿으면 main 프로세스가 통째로 죽는다. nextBounds가 반올림하지만
+    // 숫자가 아닌 값은 여기서 막는다.
+    if (!Number.isFinite(height) || height <= 0) return placement
+
     const current = window.getBounds()
     const { workArea } = screen.getDisplayMatching(current)
-    const next = nextBounds(current, placement, open, workArea)
+    const next = nextBounds(current, placement, height, workArea)
 
     placement = next.placement
     window.setBounds(next.bounds)

@@ -24,8 +24,8 @@ const api: NosyApi = {
 
   moveBy: (dx: number, dy: number): void => ipcRenderer.send(CHANNEL.moveBy, dx, dy),
 
-  setPanelOpen: (open: boolean): Promise<PanelPlacement> =>
-    ipcRenderer.invoke(CHANNEL.setPanelOpen, open),
+  setContentHeight: (height: number): Promise<PanelPlacement> =>
+    ipcRenderer.invoke(CHANNEL.setContentHeight, height),
 
   applyFix: (findingId: string): Promise<FixResult> =>
     ipcRenderer.invoke(CHANNEL.applyFix, findingId),

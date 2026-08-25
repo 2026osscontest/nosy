@@ -45,7 +45,7 @@ const NEW_ERROR_DRIFT: DriftResult = {
 describe('CHANNEL', () => {
   it('채널 7종을 정의한다', () => {
     expect(Object.keys(CHANNEL).sort()).toEqual(
-      ['applyFix', 'moveBy', 'revertFix', 'run', 'setClickThrough', 'setPanelOpen', 'state'].sort()
+      ['applyFix', 'moveBy', 'revertFix', 'run', 'setClickThrough', 'setContentHeight', 'state'].sort()
     )
   })
 

@@ -10,6 +10,9 @@ import type { PanelPlacement, PetSnapshot } from '../shared/ipc'
 /** 이보다 적게 움직였으면 드래그가 아니라 클릭으로 본다 (pet-window-spec P4). */
 const CLICK_SLOP_PX = 4
 
+/** .pet-interactive를 창 가장자리에서 띄우는 여백. index.css의 top/bottom과 같은 값이다. */
+const CONTENT_MARGIN_PX = 8
+
 type View = 'closed' | 'bubble' | 'panel'
 
 /**
@@ -38,6 +41,8 @@ export function PetStage({ snapshot }: PetStageProps) {
   const [placement, setPlacement] = useState<PanelPlacement>('above')
   const [dragging, setDragging] = useState(false)
   const drag = useRef<DragState | null>(null)
+  const interactive = useRef<HTMLDivElement>(null)
+  const lastHeight = useRef(0)
 
   const petState = snapshot?.petState ?? 'idle'
 
@@ -47,19 +52,31 @@ export function PetStage({ snapshot }: PetStageProps) {
     window.nosy.setClickThrough(true)
   }, [])
 
-  // 창 크기는 패널이 열려 있을 때만 커야 한다. 계속 크게 두면 펫 위쪽 빈 영역이 화면
-  // 천장에 걸려 펫이 더 올라가지 못한다 (main/panel-layout.ts).
+  // 창은 지금 그려진 만큼만 차지해야 한다. 콘텐츠보다 크면 그 여유분이 그대로 드래그
+  // 상한선이 된다 — 펫 위쪽 빈 영역이 화면 천장에 걸리기 때문이다 (main/panel-layout.ts).
+  //
+  // 말풍선 높이는 문제 제목의 길이에 따라 달라지므로 상수로 둘 수 없다. 실제로 재서 보낸다.
   useEffect(() => {
-    let alive = true
+    const element = interactive.current
+    if (!element) return
 
-    void window.nosy.setPanelOpen(view === 'panel').then((next) => {
-      if (alive) setPlacement(next)
-    })
+    const sync = (): void => {
+      const height = element.offsetHeight + CONTENT_MARGIN_PX * 2
 
-    return () => {
-      alive = false
+      // 같은 높이를 다시 보내면 setBounds → 리렌더 → 관측이 되풀이될 수 있다.
+      if (height === lastHeight.current) return
+      lastHeight.current = height
+
+      void window.nosy.setContentHeight(height).then(setPlacement)
     }
-  }, [view])
+
+    sync()
+
+    const observer = new ResizeObserver(sync)
+    observer.observe(element)
+
+    return () => observer.disconnect()
+  }, [])
 
   // UI_GUIDE "캐릭터 상태 4종": alarmed는 말풍선을 자동으로 띄운다.
   // 이미 무언가 열려 있으면 건드리지 않는다 — fix 적용 후 재진단으로 alarmed가 다시 오는데,
@@ -135,6 +152,7 @@ export function PetStage({ snapshot }: PetStageProps) {
       {/* 관통을 끄는 범위는 펫·말풍선·상세 패널을 함께 감싼 이 영역이다. 패널이 이 바깥에
           있으면 클릭이 관통되어 토글이 눌리지 않는다. */}
       <div
+        ref={interactive}
         className="pet-interactive"
         data-place={placement}
         onPointerEnter={(event) => {

@@ -3,20 +3,19 @@
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { BrowserWindow } from 'electron'
-import { CLOSED_HEIGHT } from './panel-layout'
+import { INITIAL_HEIGHT } from './panel-layout'
 
 const dirname = fileURLToPath(new URL('.', import.meta.url))
 
 export function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
-    // 펫보다 크게 잡는다 — 말풍선이 창 밖으로 잘리면 안 된다. 남는 영역은
-    // 클릭 관통(FR-002)으로 비워 두므로 아래 창을 가리지 않는다.
+    // 높이는 renderer가 콘텐츠를 재서 보내는 값으로 계속 갱신된다(main/panel-layout.ts).
+    // 여기 값은 그전까지 쓸 초기값일 뿐이며, 펫 하나 크기다 — 창을 콘텐츠보다 크게 잡으면
+    // 펫 위쪽 빈 영역이 화면 천장에 걸려 펫이 더 올라가지 못한다.
     //
-    // 상세 패널까지 담을 높이를 처음부터 잡아 두지 않는다. 그러면 펫 위쪽 빈 영역이 화면
-    // 천장에 걸려 펫이 더 올라가지 못한다 — macOS는 창 상단을 작업 영역 위로 올려주지 않는다.
-    // 패널을 열 때만 늘리고, 위로 늘릴 자리가 없으면 아래로 늘린다 (main/panel-layout.ts).
+    // 폭은 가장 넓은 콘텐츠(상세 패널)에 맞춰 고정한다. 가로는 화면이 넓어 같은 문제가 없다.
     width: 380,
-    height: CLOSED_HEIGHT,
+    height: INITIAL_HEIGHT,
     transparent: true,
     frame: false,
     alwaysOnTop: true,

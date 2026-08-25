@@ -15,11 +15,11 @@ export const CHANNEL = {
   revertFix: 'nosy:revert-fix',
   setClickThrough: 'nosy:set-click-through',
   moveBy: 'nosy:move-by',
-  setPanelOpen: 'nosy:set-panel-open',
+  setContentHeight: 'nosy:set-content-height',
   state: 'nosy:state'
 } as const
 
-/** 상세 패널을 펫의 위로 펼쳤는지 아래로 펼쳤는지 (main/panel-layout.ts 참조). */
+/** 말풍선·패널을 펫의 위로 펼쳤는지 아래로 펼쳤는지 (main/panel-layout.ts 참조). */
 export type PanelPlacement = 'above' | 'below'
 
 /** 'self': 30분 주기 체크(자체형 어댑터만), 'all': 전체 (drift-detection-spec FR-006). */
@@ -109,10 +109,12 @@ export interface NosyApi {
   /** 창을 화면 좌표 기준으로 dx·dy만큼 옮긴다 (드래그, pet-window-spec FR-001). */
   moveBy(dx: number, dy: number): void
   /**
-   * 상세 패널을 열거나 닫는다고 알리고, 패널을 어느 쪽으로 펼쳤는지 돌려받는다.
-   * 창 크기는 main이 조절한다 — renderer는 화면 경계를 알 수 없다.
+   * 지금 그려야 할 콘텐츠 높이를 알리고, 어느 쪽으로 펼쳤는지 돌려받는다.
+   *
+   * 창을 콘텐츠보다 크게 잡으면 그 여유분이 그대로 드래그 상한선이 되므로 창은 딱 맞춰
+   * 잡는다. 펼칠 방향은 화면 경계를 봐야 정해지는데 renderer는 그것을 알 수 없어 main이 정한다.
    */
-  setPanelOpen(open: boolean): Promise<PanelPlacement>
+  setContentHeight(height: number): Promise<PanelPlacement>
   applyFix(findingId: string): Promise<FixResult>
   revertFix(findingId: string): Promise<FixResult>
   /** 반환값은 구독 해제 함수 — React useEffect의 정리 함수로 그대로 쓴다. */

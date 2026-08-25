@@ -107,7 +107,7 @@ describe('preload 브릿지', () => {
         'revertFix',
         'run',
         'setClickThrough',
-        'setPanelOpen'
+        'setContentHeight'
       ].sort()
     )
   })
