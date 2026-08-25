@@ -29,7 +29,10 @@
       "tests": [
         "apps/pet/test/scheduler.test.ts"
       ],
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-08-25T12:37:35+09:00",
+      "completed_at": "2026-08-25T12:38:33+09:00",
+      "summary": "apps/pet/main/scheduler.ts를 실제 주기 실행으로 채웠다. startScheduler는 BrowserWindow 대신 registerIpcHandlers가 반환한 DiagnosticsRunner를 받아(index.ts 호출부도 startScheduler(runner)로 수정) IPC 채널과 같은 단일 실행 가드를 공유한다. 트리거는 2종뿐이다: setInterval(SELF_CHECK_INTERVAL_MS = 30*60*1000)로 runner.run('self')(FR-006, 자체형 어댑터만), powerMonitor.on('resume')로 runner.run('all')(FR-005 ③, 래핑형까지 전부). 두 콜백 모두 tray.ts 관례를 따라 `() => void runner.run(...)`로 부유 Promise를 명시 처리한다. FR-005 ①(앱 실행 시 1회)은 renderer/main.tsx의 마운트 시 run('all')이 이미 충족하므로 스케줄러에 걸지 않았고, 오해를 막기 위해 파일 상단 주석에 그 이유를 남겼다. 스케줄러에 자체 진단 로직은 없다 — 진단 트리거는 오직 runner.run. ipc.ts·shared/ipc.ts·renderer/·packages/core/는 미수정. 검증: apps/pet lint·build 통과, 전체 테스트 7파일 93개 통과(scheduler.test.ts 6건 + fix-ipc.test.ts 포함, 남은 red 없음)."
     }
   ],
   "created_at": "2026-08-25T12:35:11+09:00"
