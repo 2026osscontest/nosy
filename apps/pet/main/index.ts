@@ -5,6 +5,7 @@ import { createWindow } from './window'
 import { registerIpcHandlers } from './ipc'
 import { createTray } from './tray'
 import { startScheduler } from './scheduler'
+import { startRcWatcher } from './rc-watcher'
 
 // GC 방지용 보관소. Tray를 whenReady 콜백의 지역 변수로만 두면 수거되어
 // 메뉴바 아이콘이 조용히 사라진다.
@@ -16,13 +17,17 @@ app.whenReady().then(() => {
   app.dock?.hide()
 
   const window = createWindow()
+  // 어댑터가 보는 홈과 감시하는 홈이 갈리지 않도록 host 인스턴스를 재사용한다
+  // — os.homedir()를 따로 부르면 HOME을 바꿔 띄우는 데모 환경에서 두 경로가 어긋난다.
+  const host = new NodeHost()
   const runner = registerIpcHandlers(window, {
-    host: new NodeHost(),
+    host,
     store: new NodeSnapshotStore()
   })
 
   retained.push(createTray(window, runner))
   startScheduler(runner)
+  startRcWatcher(runner, host.homedir)
 })
 
 // 빈 핸들러가 필요하다 — 리스너가 하나도 없으면 Electron이 기본 동작으로 앱을 종료한다.
