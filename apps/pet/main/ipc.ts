@@ -1,15 +1,29 @@
 // main 쪽 IPC 배선. 요청 채널은 여기서만 등록하고, 결과는 CHANNEL.state로 밀어넣는다.
-// fix 실행(ADR-008 안전장치 5종)은 이 step의 범위가 아니라 applyFix/revertFix는 스텁이다.
+// fix 실행은 core의 fix 엔진(applyFix/revertFix)에 그대로 위임한다 — 안전장치 5종
+// (ADR-008: sudo 거부·expectedLine 대조·백업 선행)을 main에서 다시 구현하지 않는다.
 
 import { ipcMain } from 'electron'
 import type { BrowserWindow } from 'electron'
-import { ADAPTERS, diffResults, mergeResults, runAdapters, selfAdapters } from '@nosy/core'
-import type { DiagnosticHost, SnapshotStore } from '@nosy/core'
+import {
+  ADAPTERS,
+  applyFix,
+  diffResults,
+  mergeResults,
+  revertFix,
+  runAdapters,
+  selfAdapters
+} from '@nosy/core'
+import type { Finding, FixHost, SnapshotStore } from '@nosy/core'
 import { CHANNEL, buildSnapshot, thinkingSnapshot } from '../shared/ipc'
 import type { DiagnosticScope, FixResult, PetSnapshot } from '../shared/ipc'
 
 export interface DiagnosticsDeps {
-  host: DiagnosticHost
+  /**
+   * fix 엔진이 파일을 써야 하므로 쓰기 가능한 호스트를 받는다.
+   * 어댑터에는 이 값을 그대로 넘기더라도 시그니처가 `DiagnosticHost`라 쓰기 능력이 보이지 않는다
+   * — "진단은 읽기만 한다"는 경계를 타입으로 지킨다.
+   */
+  host: FixHost
   store: SnapshotStore
 }
 
@@ -38,8 +52,6 @@ let running = false
 /** 다음 thinking 푸시에 쓸 마지막 결과 — 진단 중 화면의 숫자가 깜빡이지 않게 유지한다. */
 let latest: PetSnapshot | undefined
 
-const notImplemented = (): FixResult => ({ ok: false, error: '아직 구현되지 않았습니다' })
-
 /**
  * renderer 밖(Tray·스케줄러)에서 진단을 트리거하는 창구.
  * IPC 채널과 같은 단일 실행 가드를 공유해야 하므로 별도 함수로 만들지 않고 여기서 넘겨준다.
@@ -54,6 +66,13 @@ export function registerIpcHandlers(
   window: BrowserWindow,
   deps: DiagnosticsDeps
 ): DiagnosticsRunner {
+  /**
+   * 적용에 성공한 fix의 되돌리기 재료. backupPath만이 아니라 Finding 객체째 보관한다
+   * — 적용 직후 재진단하면 그 문제는 해결되어 최신 results에서 사라지는데,
+   * core의 revertFix는 finding을 인자로 받기 때문이다.
+   */
+  const applied = new Map<string, { finding: Finding; backupPath: string }>()
+
   const push = (snapshot: PetSnapshot): void => {
     if (window.isDestroyed()) return
     window.webContents.send(CHANNEL.state, snapshot)
@@ -73,6 +92,15 @@ export function registerIpcHandlers(
     }
   }
 
+  /** 최신 진단 결과에서 findingId를 찾는다. 진단 전이거나 이미 해결된 항목이면 undefined. */
+  const findLatest = (findingId: string): Finding | undefined => {
+    for (const result of latest?.results ?? []) {
+      const found = result.findings.find((finding) => finding.id === findingId)
+      if (found) return found
+    }
+    return undefined
+  }
+
   ipcMain.on(CHANNEL.run, (_event, scope: DiagnosticScope) => run(scope))
 
   ipcMain.on(CHANNEL.setClickThrough, (_event, ignore: boolean) => {
@@ -89,8 +117,35 @@ export function registerIpcHandlers(
     window.setPosition(Math.round(x + dx), Math.round(y + dy))
   })
 
-  ipcMain.handle(CHANNEL.applyFix, notImplemented)
-  ipcMain.handle(CHANNEL.revertFix, notImplemented)
+  ipcMain.handle(CHANNEL.applyFix, async (_event, findingId: string): Promise<FixResult> => {
+    const finding = findLatest(findingId)
+    if (!finding) {
+      return { ok: false, error: '진단 결과에서 해당 항목을 찾을 수 없습니다. 다시 진단해 주세요.' }
+    }
+
+    const outcome = await applyFix(deps.host, finding)
+    if (!outcome.ok) return { ok: false, error: outcome.error }
+
+    applied.set(findingId, { finding, backupPath: outcome.backupPath as string })
+    // toggle-panel-spec FR-002 ③: 실행 후 재진단해 결과를 반영한다.
+    await run('all')
+
+    return { ok: true, backupPath: outcome.backupPath }
+  })
+
+  ipcMain.handle(CHANNEL.revertFix, async (_event, findingId: string): Promise<FixResult> => {
+    const record = applied.get(findingId)
+    if (!record) return { ok: false, error: '적용 기록이 없어 되돌릴 수 없습니다.' }
+
+    const outcome = await revertFix(deps.host, record.finding, record.backupPath)
+    // 실패했으면 기록을 지우지 않는다 — 백업은 그대로 남아 있으므로 재시도할 수 있어야 한다.
+    if (!outcome.ok) return { ok: false, error: outcome.error }
+
+    applied.delete(findingId)
+    await run('all')
+
+    return { ok: true, backupPath: outcome.backupPath }
+  })
 
   return { run }
 }
