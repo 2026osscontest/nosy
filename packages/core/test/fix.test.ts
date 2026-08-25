@@ -23,6 +23,16 @@ function loadFixture(name: string): string {
 const FROZEN = new Date(2026, 7, 24, 17, 8, 12)
 const STAMP = '20260824-170812'
 
+/**
+ * 백업은 원본 옆이 아니라 앱 디렉터리에 모은다.
+ *
+ * 10월 기능테스트에서 심사위원이 자기 머신에 설치해 돌린다(docs/SUBMISSION.md). fix를
+ * 누를 때마다 남의 홈에 `~/.zshrc.bak.<시각>`이 쌓이고 앱이 치우지 않으면 그 자체로 인상이
+ * 나빠진다. 스냅샷을 이미 `~/.nosy/`에 두고 있으므로 백업도 같은 자리로 모은다.
+ */
+const BACKUP_DIR = `${homedir}/.nosy/backups`
+const BACKUP_PATH = `${BACKUP_DIR}/.zshrc.bak.${STAMP}`
+
 interface HostExtras {
   files?: Record<string, string>
   execResults?: Record<string, { stdout: string; stderr: string; code: number }>
@@ -132,6 +142,21 @@ describe('FakeHost의 쓰기 구현', () => {
     await expect(host.copyFile('/nope', '/nope.bak')).rejects.toThrow()
   })
 
+  it('removeFile로 지운 파일은 더 이상 읽히지 않는다', async () => {
+    const host = hostWith('original')
+
+    await host.removeFile(rcPath)
+
+    expect(await host.readFile(rcPath)).toBeNull()
+  })
+
+  // 되돌리기 경로에서 이미 지워진 백업을 다시 지우려 할 수 있다.
+  it('없는 파일을 removeFile해도 예외를 던지지 않는다', async () => {
+    const host = hostWith('original')
+
+    await expect(host.removeFile('/nope')).resolves.toBeUndefined()
+  })
+
   it('주입한 now()를 돌려준다', () => {
     expect(hostWith('x').now()).toEqual(FROZEN)
   })
@@ -161,8 +186,18 @@ describe('applyFix', () => {
 
     const outcome = await applyFix(host, editFinding())
 
-    expect(outcome.backupPath).toBe(`${rcPath}.bak.${STAMP}`)
+    expect(outcome.backupPath).toBe(BACKUP_PATH)
     expect(await host.readFile(outcome.backupPath!)).toBe('first\nsecond\nthird\n')
+  })
+
+  it('백업을 원본 옆이 아니라 앱 디렉터리에 만든다', async () => {
+    const host = hostWith('first\nsecond\nthird\n')
+
+    const outcome = await applyFix(host, editFinding())
+
+    expect(outcome.backupPath?.startsWith(`${BACKUP_DIR}/`)).toBe(true)
+    // 사용자의 홈에는 아무것도 흘리지 않는다.
+    expect(await host.readFile(`${rcPath}.bak.${STAMP}`)).toBeNull()
   })
 
   // ADR-008 ③: 권한 상승을 앱이 대신 실행하지 않는다.
@@ -255,7 +290,7 @@ describe('revertFix', () => {
   it('백업 파일이 없으면 거부한다', async () => {
     const host = hostWith('first\nthird\n')
 
-    const outcome = await revertFix(host, editFinding(), `${rcPath}.bak.${STAMP}`)
+    const outcome = await revertFix(host, editFinding(), BACKUP_PATH)
 
     expect(outcome.ok).toBe(false)
   })
@@ -265,9 +300,56 @@ describe('revertFix', () => {
     const finding = editFinding()
     delete finding.fix.edit
 
-    const outcome = await revertFix(host, finding, `${rcPath}.bak.${STAMP}`)
+    const outcome = await revertFix(host, finding, BACKUP_PATH)
 
     expect(outcome.ok).toBe(false)
+  })
+
+  // 백업이 한자리에 모이면서 파일 이름만으로는 대상을 구분할 수 없게 됐다.
+  // 다른 rc 파일의 백업으로 이 파일을 덮어쓰면 안 된다.
+  it('같은 백업 디렉터리에 있어도 다른 파일의 백업은 거부한다', async () => {
+    const host = hostWith('first\nsecond\nthird\n', {
+      files: { [`${BACKUP_DIR}/.bashrc.bak.${STAMP}`]: 'bashrc 내용' }
+    })
+    await applyFix(host, editFinding())
+
+    const outcome = await revertFix(host, editFinding(), `${BACKUP_DIR}/.bashrc.bak.${STAMP}`)
+
+    expect(outcome.ok).toBe(false)
+    expect(await host.readFile(rcPath)).toBe('first\nthird\n')
+  })
+
+  // 되돌리고 나면 파일은 이미 원본 상태다. 남겨 둘 이유가 없고, 놔두면 계속 쌓인다.
+  it('되돌리기에 성공하면 그 백업을 지운다', async () => {
+    const host = hostWith('first\nsecond\nthird\n')
+    const finding = editFinding()
+
+    const applied = await applyFix(host, finding)
+    await revertFix(host, finding, applied.backupPath!)
+
+    expect(await host.readFile(applied.backupPath!)).toBeNull()
+  })
+
+  // 복원이 실패했으면 파일은 아직 수정된 상태다. 이때 백업까지 지우면 되돌릴 길이 사라진다.
+  it('되돌리기를 거부했을 때는 백업을 지우지 않는다', async () => {
+    const host = hostWith('first\nsecond\nthird\n', { files: { '/etc/passwd': 'root:x:0:0' } })
+    const finding = editFinding()
+    const applied = await applyFix(host, finding)
+
+    await revertFix(host, finding, '/etc/passwd')
+
+    expect(await host.readFile(applied.backupPath!)).toBe('first\nsecond\nthird\n')
+  })
+
+  it('지운 백업으로 다시 되돌리려 하면 거부한다', async () => {
+    const host = hostWith('first\nsecond\nthird\n')
+    const finding = editFinding()
+    const applied = await applyFix(host, finding)
+    await revertFix(host, finding, applied.backupPath!)
+
+    const second = await revertFix(host, finding, applied.backupPath!)
+
+    expect(second.ok).toBe(false)
   })
 })
 

@@ -51,6 +51,10 @@
       "dir": "rc-watcher",
       "status": "completed",
       "completed_at": "2026-08-25T13:09:16+09:00"
+    },
+    {
+      "dir": "backup-location",
+      "status": "pending"
     }
   ]
 }
