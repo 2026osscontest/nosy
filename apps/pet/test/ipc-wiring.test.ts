@@ -95,11 +95,20 @@ describe('preload 브릿지', () => {
     expect(key).toBe('nosy')
   })
 
-  it('약속한 7개 항목을 노출한다', async () => {
+  it('약속한 8개 항목을 노출한다', async () => {
     const { api } = await loadBridge()
 
     expect(Object.keys(api).sort()).toEqual(
-      ['applyFix', 'moveBy', 'onState', 'platform', 'revertFix', 'run', 'setClickThrough'].sort()
+      [
+        'applyFix',
+        'moveBy',
+        'onState',
+        'platform',
+        'revertFix',
+        'run',
+        'setClickThrough',
+        'setPanelOpen'
+      ].sort()
     )
   })
 

@@ -2,7 +2,7 @@
 // fix 실행은 core의 fix 엔진(applyFix/revertFix)에 그대로 위임한다 — 안전장치 5종
 // (ADR-008: sudo 거부·expectedLine 대조·백업 선행)을 main에서 다시 구현하지 않는다.
 
-import { ipcMain } from 'electron'
+import { ipcMain, screen } from 'electron'
 import type { BrowserWindow } from 'electron'
 import {
   ADAPTERS,
@@ -15,7 +15,8 @@ import {
 } from '@nosy/core'
 import type { Finding, FixHost, SnapshotStore } from '@nosy/core'
 import { CHANNEL, buildSnapshot, thinkingSnapshot } from '../shared/ipc'
-import type { DiagnosticScope, FixResult, PetSnapshot } from '../shared/ipc'
+import type { DiagnosticScope, FixResult, PanelPlacement, PetSnapshot } from '../shared/ipc'
+import { nextBounds } from './panel-layout'
 
 export interface DiagnosticsDeps {
   /**
@@ -106,6 +107,24 @@ export function registerIpcHandlers(
   ipcMain.on(CHANNEL.setClickThrough, (_event, ignore: boolean) => {
     // forward: true라야 관통 중에도 창이 마우스 이동을 계속 받아 펫 영역 복귀를 감지한다 (FR-002).
     window.setIgnoreMouseEvents(ignore, { forward: true })
+  })
+
+  /**
+   * 패널을 펼칠 방향은 화면 경계를 봐야 정해지므로 renderer가 결정할 수 없다.
+   * 창을 늘리고, 어느 쪽으로 늘렸는지 알려준다 — renderer는 그 방향에 맞춰 펫과 패널의
+   * 위아래 순서를 뒤집는다.
+   */
+  let placement: PanelPlacement = 'above'
+
+  ipcMain.handle(CHANNEL.setPanelOpen, (_event, open: boolean): PanelPlacement => {
+    const current = window.getBounds()
+    const { workArea } = screen.getDisplayMatching(current)
+    const next = nextBounds(current, placement, open, workArea)
+
+    placement = next.placement
+    window.setBounds(next.bounds)
+
+    return placement
   })
 
   ipcMain.on(CHANNEL.moveBy, (_event, dx: number, dy: number) => {

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { PetView } from './PetView'
 import { Bubble } from './Bubble'
 import { FixPanel } from './FixPanel'
-import type { PetSnapshot } from '../shared/ipc'
+import type { PanelPlacement, PetSnapshot } from '../shared/ipc'
 
 /** 이보다 적게 움직였으면 드래그가 아니라 클릭으로 본다 (pet-window-spec P4). */
 const CLICK_SLOP_PX = 4
@@ -34,6 +34,8 @@ interface PetStageProps {
 
 export function PetStage({ snapshot }: PetStageProps) {
   const [view, setView] = useState<View>('closed')
+  // 패널을 펫 위로 펼칠지 아래로 펼칠지는 화면 경계를 아는 main이 정한다.
+  const [placement, setPlacement] = useState<PanelPlacement>('above')
   const [dragging, setDragging] = useState(false)
   const drag = useRef<DragState | null>(null)
 
@@ -44,6 +46,20 @@ export function PetStage({ snapshot }: PetStageProps) {
   useEffect(() => {
     window.nosy.setClickThrough(true)
   }, [])
+
+  // 창 크기는 패널이 열려 있을 때만 커야 한다. 계속 크게 두면 펫 위쪽 빈 영역이 화면
+  // 천장에 걸려 펫이 더 올라가지 못한다 (main/panel-layout.ts).
+  useEffect(() => {
+    let alive = true
+
+    void window.nosy.setPanelOpen(view === 'panel').then((next) => {
+      if (alive) setPlacement(next)
+    })
+
+    return () => {
+      alive = false
+    }
+  }, [view])
 
   // UI_GUIDE "캐릭터 상태 4종": alarmed는 말풍선을 자동으로 띄운다.
   // 이미 무언가 열려 있으면 건드리지 않는다 — fix 적용 후 재진단으로 alarmed가 다시 오는데,
@@ -120,6 +136,7 @@ export function PetStage({ snapshot }: PetStageProps) {
           있으면 클릭이 관통되어 토글이 눌리지 않는다. */}
       <div
         className="pet-interactive"
+        data-place={placement}
         onPointerEnter={(event) => {
           // 버튼을 누르지 않은 채 들어왔는데 드래그 상태가 남아 있다면 지난 드래그의 잔재다.
           if (event.buttons === 0) drag.current = null

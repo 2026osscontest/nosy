@@ -64,17 +64,29 @@ body {
   height: 100%;
 }
 
-/* 펫과 말풍선을 한 덩어리로 묶어 창 아래쪽 가운데에 세운다.
-   나머지 영역은 비어 있고 클릭이 관통된다. */
+/* 펫과 말풍선·패널을 한 덩어리로 묶어 창 가운데에 세운다.
+   나머지 영역은 비어 있고 클릭이 관통된다.
+
+   창은 패널을 펼치는 방향으로만 늘어난다(main/panel-layout.ts). 위로 펼치면 펫이 창 아래에,
+   아래로 펼치면 펫이 창 위에 붙는다 — 어느 쪽이든 펫의 화면상 위치는 그대로다. */
 .pet-interactive {
   position: absolute;
   left: 50%;
-  bottom: 8px;
   transform: translateX(-50%);
   display: flex;
-  flex-direction: column;
   align-items: center;
   gap: 10px;
+}
+
+.pet-interactive[data-place='above'] {
+  bottom: 8px;
+  flex-direction: column;
+}
+
+/* DOM 순서는 그대로 두고 쌓는 방향만 뒤집는다 — 펫이 위, 패널이 아래가 된다. */
+.pet-interactive[data-place='below'] {
+  top: 8px;
+  flex-direction: column-reverse;
 }
 
 .pet-anchor {

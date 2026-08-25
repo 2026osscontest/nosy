@@ -5,7 +5,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import { CHANNEL } from '../shared/ipc'
-import type { DiagnosticScope, FixResult, NosyApi, PetSnapshot } from '../shared/ipc'
+import type {
+  DiagnosticScope,
+  FixResult,
+  NosyApi,
+  PanelPlacement,
+  PetSnapshot
+} from '../shared/ipc'
 
 // NosyApi로 못박아 둔다 — 여기서 빠뜨린 메서드는 renderer의 전역 선언과 어긋나 컴파일에서 걸린다.
 const api: NosyApi = {
@@ -17,6 +23,9 @@ const api: NosyApi = {
   setClickThrough: (ignore: boolean): void => ipcRenderer.send(CHANNEL.setClickThrough, ignore),
 
   moveBy: (dx: number, dy: number): void => ipcRenderer.send(CHANNEL.moveBy, dx, dy),
+
+  setPanelOpen: (open: boolean): Promise<PanelPlacement> =>
+    ipcRenderer.invoke(CHANNEL.setPanelOpen, open),
 
   applyFix: (findingId: string): Promise<FixResult> =>
     ipcRenderer.invoke(CHANNEL.applyFix, findingId),

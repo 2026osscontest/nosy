@@ -3,19 +3,20 @@
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { BrowserWindow } from 'electron'
+import { CLOSED_HEIGHT } from './panel-layout'
 
 const dirname = fileURLToPath(new URL('.', import.meta.url))
 
 export function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
-    // 펫보다 크게 잡는다 — 말풍선과 상세 패널이 창 밖으로 잘리면 안 된다. 남는 영역은
+    // 펫보다 크게 잡는다 — 말풍선이 창 밖으로 잘리면 안 된다. 남는 영역은
     // 클릭 관통(FR-002)으로 비워 두므로 아래 창을 가리지 않는다.
     //
-    // 높이는 가장 큰 상태(펫 + 상세 패널)를 기준으로 잡아 두고 줄이지 않는다. 패널을 열 때
-    // setSize로 늘리는 방법도 있지만, 그러면 창이 커지는 방향에 따라 펫이 화면에서 튀어
-    // 사용자가 끌어다 놓은 위치가 흐트러진다.
+    // 상세 패널까지 담을 높이를 처음부터 잡아 두지 않는다. 그러면 펫 위쪽 빈 영역이 화면
+    // 천장에 걸려 펫이 더 올라가지 못한다 — macOS는 창 상단을 작업 영역 위로 올려주지 않는다.
+    // 패널을 열 때만 늘리고, 위로 늘릴 자리가 없으면 아래로 늘린다 (main/panel-layout.ts).
     width: 380,
-    height: 560,
+    height: CLOSED_HEIGHT,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
