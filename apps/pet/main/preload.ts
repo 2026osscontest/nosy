@@ -6,7 +6,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import { CHANNEL } from '../shared/ipc'
 import type {
-  ClipState,
+  Shove,
   DiagnosticScope,
   FixResult,
   NosyApi,
@@ -28,11 +28,11 @@ const api: NosyApi = {
     ipcRenderer.send(CHANNEL.setContentSize, width, height),
 
   /** 구독 해제 함수를 반환한다 — onState와 같은 규약이다. */
-  onClip: (handler: (clip: ClipState) => void): (() => void) => {
-    const listener = (_event: IpcRendererEvent, clip: ClipState): void => handler(clip)
+  onShove: (handler: (shove: Shove) => void): (() => void) => {
+    const listener = (_event: IpcRendererEvent, shove: Shove): void => handler(shove)
 
-    ipcRenderer.on(CHANNEL.clip, listener)
-    return () => ipcRenderer.removeListener(CHANNEL.clip, listener)
+    ipcRenderer.on(CHANNEL.shove, listener)
+    return () => ipcRenderer.removeListener(CHANNEL.shove, listener)
   },
 
   applyFix: (findingId: string): Promise<FixResult> =>

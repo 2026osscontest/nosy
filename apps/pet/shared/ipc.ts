@@ -17,17 +17,19 @@ export const CHANNEL = {
   moveBy: 'nosy:move-by',
   setContentSize: 'nosy:set-content-size',
   state: 'nosy:state',
-  clip: 'nosy:clip'
+  shove: 'nosy:shove'
 } as const
 
 /**
- * 콘텐츠가 작업 영역 밖으로 잘려 나간 방향 (main/panel-layout.ts 참조).
- * 아래쪽은 없다 — 펫이 화면 아래로 나가면 힌트도 함께 나가 보여줄 수가 없다.
+ * 펫이 자기 자리(home)에서 밀려난 양. 패널이 화면 밖으로 나갈 자리면 창이 통째로 안쪽으로
+ * 밀리는데(main/panel-layout.ts placeBounds), 그때 펫도 함께 움직인 거리다.
+ *
+ * 부호가 곧 밀려난 방향이다 — renderer는 그 방향으로 튕기는 몸짓을 재생한다.
+ * 밀리지 않았으면 둘 다 0이다.
  */
-export interface ClipState {
-  top: boolean
-  left: boolean
-  right: boolean
+export interface Shove {
+  x: number
+  y: number
 }
 
 /** 'self': 30분 주기 체크(자체형 어댑터만), 'all': 전체 (drift-detection-spec FR-006). */
@@ -117,15 +119,14 @@ export interface NosyApi {
   /** 창을 화면 좌표 기준으로 dx·dy만큼 옮긴다 (드래그, pet-window-spec FR-001). */
   moveBy(dx: number, dy: number): void
   /**
-   * 지금 그려야 할 콘텐츠 크기를 알린다. 창을 콘텐츠보다 크게 잡으면 그 여유분이 그대로
-   * 드래그 상한선이 되므로 창은 여기 맞춰 잡는다.
+   * 지금 그려야 할 콘텐츠 크기를 알린다. 창은 콘텐츠와 같은 크기로 잡히므로, 무엇을 펼치든
+   * 이 값 하나로 창이 결정된다.
    *
-   * 응답을 기다리지 않는다 — 결과(무엇이 잘렸는지)는 언제나 `onClip`으로 도착한다.
-   * 드래그로도 잘림이 바뀌는데 드래그는 초당 수십 번이라 왕복시킬 수 없기 때문이다.
+   * 응답을 기다리지 않는다 — 결과(펫이 얼마나 밀려났는지)는 언제나 `onShove`로 도착한다.
    */
   setContentSize(width: number, height: number): void
-  /** 잘린 방향이 바뀔 때마다 불린다. 반환값은 구독 해제 함수다. */
-  onClip(handler: (clip: ClipState) => void): () => void
+  /** 펫이 자기 자리에서 밀려날 때마다 불린다. 반환값은 구독 해제 함수다. */
+  onShove(handler: (shove: Shove) => void): () => void
   applyFix(findingId: string): Promise<FixResult>
   revertFix(findingId: string): Promise<FixResult>
   /** 반환값은 구독 해제 함수 — React useEffect의 정리 함수로 그대로 쓴다. */

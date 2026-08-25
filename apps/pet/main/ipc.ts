@@ -15,8 +15,9 @@ import {
 } from '@nosy/core'
 import type { Finding, FixHost, SnapshotStore } from '@nosy/core'
 import { CHANNEL, buildSnapshot, thinkingSnapshot } from '../shared/ipc'
-import type { ClipState, DiagnosticScope, FixResult, PetSnapshot } from '../shared/ipc'
-import { INITIAL_HEIGHT, clipOf, fitBounds } from './panel-layout'
+import type { DiagnosticScope, FixResult, PetSnapshot, Shove } from '../shared/ipc'
+import { INITIAL_HEIGHT, INITIAL_WIDTH, petOrigin, placeBounds } from './panel-layout'
+import type { Point } from './panel-layout'
 
 export interface DiagnosticsDeps {
   /**
@@ -109,53 +110,64 @@ export function registerIpcHandlers(
     window.setIgnoreMouseEvents(ignore, { forward: true })
   })
 
-  /** renderer가 마지막으로 알려준 콘텐츠 크기. 잘림 판정에 계속 쓰인다. */
-  let content = { width: 0, height: INITIAL_HEIGHT }
-  /** 직전에 보낸 잘림 상태. 드래그 중 같은 값을 반복해서 보내지 않도록 기억한다. */
-  let lastClip = ''
+  /** renderer가 마지막으로 알려준 콘텐츠 크기. 창 크기가 곧 이 값이다. */
+  let content = { width: INITIAL_WIDTH, height: INITIAL_HEIGHT }
+  /**
+   * 펫의 자리. 드래그로만 바뀌고, 패널을 열고 닫는 것으로는 바뀌지 않는다 — 그래야 패널을
+   * 닫았을 때 사용자가 놔둔 자리로 돌아온다 (FR-012).
+   */
+  let home: Point = petOrigin(window.getBounds())
+  /** 직전에 보낸 밀림 방향. 같은 값을 반복해서 보내지 않도록 기억한다. */
+  let lastShove = ''
 
   /**
-   * 무엇이 잘렸는지 알린다. 드래그는 초당 수십 번이라 왕복시킬 수 없으므로 push로만 보내고,
-   * 값이 실제로 바뀌었을 때만 보낸다.
+   * 지금 크기·자리로 창을 놓고, 펫이 home에서 밀려났으면 그 방향을 알린다.
+   *
+   * 드래그는 초당 수십 번이라 왕복시킬 수 없으므로 push로만 보내고, 값이 실제로 바뀌었을
+   * 때만 보낸다.
    */
-  const pushClip = (): void => {
+  const place = (always: boolean): void => {
     if (window.isDestroyed()) return
 
-    const bounds = window.getBounds()
-    const { workArea } = screen.getDisplayMatching(bounds)
-    const clip: ClipState = clipOf(bounds, content.width, content.height, workArea)
-    const key = `${clip.top}|${clip.left}|${clip.right}`
+    const { workArea } = screen.getDisplayMatching(window.getBounds())
+    const bounds = placeBounds(home, content, workArea)
 
-    if (key === lastClip) return
-    lastClip = key
-    window.webContents.send(CHANNEL.clip, clip)
+    window.setBounds(bounds)
+
+    const actual = petOrigin(bounds)
+    const shove: Shove = { x: actual.x - home.x, y: actual.y - home.y }
+    const key = `${shove.x}|${shove.y}`
+
+    // 크기가 바뀐 뒤에는 값이 그대로여도 반드시 알린다. renderer가 이 답을 받을 때까지
+    // 콘텐츠를 감추고 기다리기 때문이다 — 안 보내면 감춘 채로 남는다.
+    if (key === lastShove && !always) return
+    lastShove = key
+    window.webContents.send(CHANNEL.shove, shove)
   }
 
   ipcMain.on(CHANNEL.setContentSize, (_event, width: number, height: number) => {
-    // 소수나 NaN이 setBounds에 닿으면 main 프로세스가 통째로 죽는다. fitBounds가 반올림하지만
-    // 숫자가 아닌 값은 여기서 막는다.
+    // 소수나 NaN이 setBounds에 닿으면 main 프로세스가 통째로 죽는다. placeBounds가
+    // 반올림하지만 숫자가 아닌 값은 여기서 막는다.
     if (!Number.isFinite(width) || !Number.isFinite(height) || height <= 0) return
 
+    // home은 건드리지 않는다. 패널을 여느라 창이 밀렸더라도 닫으면 제자리로 돌아와야 한다.
     content = { width, height }
-
-    const bounds = window.getBounds()
-    const { workArea } = screen.getDisplayMatching(bounds)
-
-    window.setBounds(fitBounds(bounds, height, workArea))
-    pushClip()
+    place(true)
   })
 
   ipcMain.on(CHANNEL.moveBy, (_event, dx: number, dy: number) => {
-    // setPosition은 정수만 받는다. 소수가 들어가면 main 프로세스가 통째로 죽으므로
+    // setBounds는 정수만 받는다. 소수가 들어가면 main 프로세스가 통째로 죽으므로
     // renderer가 정수를 보내더라도 여기서 한 번 더 막는다.
     if (!Number.isFinite(dx) || !Number.isFinite(dy)) return
 
-    const [x, y] = window.getPosition()
+    const { workArea } = screen.getDisplayMatching(window.getBounds())
 
-    // 화면 밖으로 나가는 것을 막지 않는다. 대신 무엇이 잘렸는지 알려 사용자가 끌어올 수
-    // 있게 한다 — 되찾을 수 없게 된 경우의 마지막 수단은 Tray의 "펫 데려오기"다.
-    window.setPosition(Math.round(x + dx), Math.round(y + dy))
-    pushClip()
+    // 끄는 동안에는 밀린 결과를 그대로 집으로 삼는다. 그래야 화면 끝에 닿은 뒤에도 home이
+    // 화면 밖으로 계속 나가지 않아, 방향을 되돌렸을 때 펫이 즉시 커서를 따라온다.
+    // 튕김도 이 경로에서는 늘 0이 된다 — 끄는 중에 펫이 튕기면 커서와 어긋나 보인다.
+    home = petOrigin(placeBounds({ x: home.x + dx, y: home.y + dy }, content, workArea))
+    // 드래그는 초당 수십 번이다. 값이 그대로면 보내지 않는다.
+    place(false)
   })
 
   ipcMain.handle(CHANNEL.applyFix, async (_event, findingId: string): Promise<FixResult> => {

@@ -66,8 +66,9 @@ function fakeWindow(sent: SentMessage[]) {
       send: (channel: string, payload: PetSnapshot) => sent.push({ channel, payload })
     },
     setIgnoreMouseEvents: vi.fn(),
-    getPosition: vi.fn(() => [0, 0]),
-    setPosition: vi.fn(),
+    // 핸들러 등록 시점에 펫의 자리를 창에서 읽는다 (main/ipc.ts home).
+    getBounds: vi.fn(() => ({ x: 0, y: 0, width: 104, height: 88 })),
+    setBounds: vi.fn(),
     isDestroyed: () => false
   } as unknown as BrowserWindow
 }

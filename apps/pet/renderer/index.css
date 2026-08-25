@@ -80,27 +80,143 @@ body {
   gap: 10px;
 }
 
-/* 화면 밖으로 잘려 나간 부분이 있을 때만 뜬다. 펫 바로 위라 잘리는 쪽 반대편이고,
-   레이아웃 안에 있으므로 창 높이에 포함되어 이 힌트 자체는 잘리지 않는다. */
-.pet-clip-hint {
-  margin: 0;
-  padding: calc(3px * var(--k)) calc(6px * var(--k));
-  background: var(--ink);
-  color: var(--cream);
-  font-family: 'Galmuri11', monospace;
-  font-size: var(--t);
-  line-height: var(--lh);
-  -webkit-font-smoothing: none;
-  white-space: nowrap;
-}
-
+/* 펫은 패널 뒤에 그려진다. 패널이 덮친 뒤 그 아래 가장자리로 빠져나오는 것이 보여야
+   "깔렸다가 탈출한다"가 성립한다 — 앞에 그리면 패널 위를 지나가 버린다.
+   레이아웃상 펫은 패널 아래에 있어 겹치지 않으므로, 클릭·드래그 판정에는 영향이 없다. */
 .pet-anchor {
+  position: relative;
+  z-index: 0;
   line-height: 0;
   cursor: grab;
 }
 
 .pet-anchor[data-dragging='true'] {
   cursor: grabbing;
+}
+
+/* 패널이 화면 밖으로 나갈 자리면 창이 통째로 안쪽으로 밀린다(main/panel-layout.ts).
+   펫도 함께 순간이동하는데, 그러면 왜 움직였는지 읽히지 않는다. 밀린 방향으로 한 번
+   튕겼다가 제자리에 정착시켜 "밀려났다"는 인과를 보여준다 (FR-012).
+
+   창은 이미 최종 자리에 있으므로 애니메이션은 오버슈트에서 0으로 수렴한다 — 관성으로
+   지나쳤다가 되돌아오는 모양이다. 방향은 renderer가 --shove-x/--shove-y에 -1·0·1로
+   꽂는다. 폭은 4px·8px로 스프라이트 1·2픽셀(SCALE 4)이고, steps(1)로 끊어 중간값 없이
+   프레임처럼 넘어간다. */
+/* 이동. 패널이 덮치기 전 서 있던 자리에서 지금 자리까지 온다. 그 구간의 대부분은
+   패널 뒤라 보이지 않고, 아래 가장자리를 지나는 순간부터 드러난다.
+
+   시간은 거리에 비례한다(PetStage의 TRAVEL_SPEED_PX_PER_S). 고정하면 멀리 밀릴 때와
+   조금 밀릴 때의 속도가 몇 배씩 차이 나서, 짧은 이동이 굼떠 보인다. */
+@keyframes pet-travel {
+  0% {
+    transform: translate(var(--from-x), var(--from-y));
+  }
+
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+/* 이동하는 동안의 몸. 진행 축으로 늘어나 있다. */
+@keyframes pet-stretch {
+  0%,
+  100% {
+    transform: scale(var(--stretch-x), var(--stretch-y));
+  }
+}
+
+/* 도착한 뒤의 몸. 눌림 → 되튐 → 눌림 → 정착을 프레임 단위로 끊어 도트 톤을 지킨다.
+   이동과 분리돼 있어 이동 거리가 얼마든 착지의 무게는 늘 같다. */
+@keyframes pet-land {
+  0% {
+    transform: scale(var(--squash-x), var(--squash-y));
+  }
+
+  33% {
+    transform: translate(calc(var(--shove-x) * -8px), calc(var(--shove-y) * -8px))
+      scale(var(--stretch-x), var(--stretch-y));
+  }
+
+  66% {
+    transform: scale(var(--squash-x), var(--squash-y));
+  }
+
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+.pet-anchor[data-shove='true'] {
+  animation: pet-travel var(--travel-time) cubic-bezier(0.5, 0, 1, 1) 1;
+}
+
+/* 되돌아가기. 패널을 접으면 펫이 제자리로 끌려 올라간다 — 밀려날 때와 같은 거리를
+   반대로 간다. 밀 때처럼 튀어나오는 것이 아니라 당겨지는 것이므로, 처음에 버티다
+   끌려가고 자리에 이르러 잦아드는 곡선을 쓴다.
+
+   forwards로 끝 자리를 붙잡아 둔다. 창이 줄어드는 것은 그 뒤라, 여기서 손을 놓으면
+   펫이 한 프레임 도로 내려갔다 올라온다. 푸는 것은 창이 다 줄었다는 신호(밀림 0)를
+   받았을 때다 (PetStage의 onShove). */
+@keyframes pet-retreat {
+  0% {
+    transform: translate(0, 0);
+  }
+
+  100% {
+    transform: translate(var(--from-x), var(--from-y));
+  }
+}
+
+/* 끌려가는 동안의 몸. 당겨져 진행 축으로 늘어났다가 자리에 닿으며 돌아온다.
+   착지처럼 눌리지는 않는다 — 부딪힌 것이 아니라 당겨진 것이다. */
+@keyframes pet-pull {
+  0% {
+    transform: scale(1, 1);
+  }
+
+  20%,
+  85% {
+    transform: scale(var(--stretch-x), var(--stretch-y));
+  }
+
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+.pet-anchor[data-retreat='true'] {
+  animation: pet-retreat var(--travel-time) cubic-bezier(0.55, 0, 0.35, 1) 1 forwards;
+}
+
+.pet-anchor[data-retreat='true'] .pet-body {
+  transform-origin: var(--origin-x) 100%;
+  animation: pet-pull var(--travel-time) linear 1;
+}
+
+/* 창이 옮겨 가는 중에는 아무것도 그리지 않는다. 창이 움직이는 시각과 펫의 변형이 걸리는
+   시각이 어긋나 있어서, 그 사이에 그려지면 펫이 보정 전 자리에 한 프레임 찍혔다가 튄다.
+   자리는 그대로 차지해야 한다 — 크기를 재는 중이므로 display로 지우면 안 된다. */
+.pet-interactive[data-settling='true'] {
+  visibility: hidden;
+}
+
+/* 접는 중에는 패널을 보이지만 않게 둔다. 떼어 내면 창이 곧바로 줄어들어, 펫이 출발해야
+   할 자리가 창 밖이 된다 — 자리는 그대로 차지한 채 사라져야 한다. */
+.pet-interactive[data-closing='true'] .panel {
+  visibility: hidden;
+}
+
+
+/* 늘어남과 착지는 한 요소에서 이어 돈다. 시간대가 겹치지 않으므로(착지가 이동 시간만큼
+   늦게 시작한다) 같은 transform을 두 애니메이션이 다퉈 쓰는 문제가 없다.
+
+   세로는 발이 땅에 붙은 채 눌려야 한다 — 기준점이 가운데면 공중에서 찌그러진다.
+   가로는 끌리는 쪽 반대편이 기준이라야 늘어나는 방향이 진행 방향이 된다. */
+.pet-anchor[data-shove='true'] .pet-body {
+  transform-origin: var(--origin-x) 100%;
+  animation:
+    pet-stretch var(--travel-time) linear 1,
+    pet-land 0.27s steps(1, end) var(--travel-time) 1;
 }
 
 /* -webkit-user-drag는 상속되지 않는다. body에만 걸면 <img>가 여전히 네이티브
@@ -129,6 +245,12 @@ body {
     0% var(--u), var(--u) var(--u)
   );
   position: relative;
+  /* 펫보다 앞이다. 밑에 깔린 펫이 가려져야 빠져나오는 것이 보인다(.pet-anchor 참조).
+     z-index만으로는 부족하다 — 펫은 transform 애니메이션 때문에 자기 합성 레이어로
+     올라가는데, 이쪽은 clip-path를 쓰고 있어 같이 올라가지 못하면 순서가 뒤집힌다.
+     그러면 가려져 있어야 할 펫이 패널 위를 지나가는 것이 그대로 보인다. */
+  z-index: 1;
+  will-change: transform;
   font-family: 'Galmuri11', monospace;
   /* 비트맵 폰트라 안티에일리어싱을 끄지 않으면 가장자리가 흐려진다. */
   -webkit-font-smoothing: none;

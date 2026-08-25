@@ -28,7 +28,8 @@ vi.mock('electron', () => ({
     removeListener: mocks.removeListener
   },
   ipcMain: { handle: mocks.handle, on: mocks.mainOn },
-  // 드래그는 펫이 화면 밖으로 나가지 않게 작업 영역을 본다 (main/panel-layout.ts clampY).
+  // 창을 놓을 때 작업 영역을 본다 — 콘텐츠가 화면 밖으로 나가면 안으로 민다
+  // (main/panel-layout.ts placeBounds).
   screen: { getDisplayMatching: () => ({ workArea: WORK_AREA }) }
 }))
 
@@ -83,7 +84,7 @@ function fakeWindow(sent: SentMessage[]) {
     },
     setIgnoreMouseEvents: vi.fn(),
     getPosition: vi.fn(() => [100, 200]),
-    getBounds: vi.fn(() => ({ x: 100, y: 200, width: 380, height: 88 })),
+    getBounds: vi.fn(() => ({ x: 100, y: 200, width: 104, height: 88 })),
     setBounds: vi.fn(),
     setPosition: vi.fn(),
     isDestroyed: () => false
@@ -109,7 +110,7 @@ describe('preload 브릿지', () => {
       [
         'applyFix',
         'moveBy',
-        'onClip',
+        'onShove',
         'onState',
         'platform',
         'revertFix',
@@ -245,24 +246,28 @@ describe('registerIpcHandlers', () => {
     expect(registered).not.toContain(CHANNEL.state)
   })
 
+  // setPosition이 아니라 setBounds다. 창 크기까지 콘텐츠와 자리에 맞춰 다시 잡는다
+  // (main/panel-layout.ts placeBounds).
   it('moveBy는 현재 위치에 델타를 더해 창을 옮긴다 (pet-window FR-001)', async () => {
     const { window, onHandler } = await register()
 
     onHandler(CHANNEL.moveBy)?.({}, 12, -5)
 
-    expect(window.setPosition).toHaveBeenCalledWith(112, 195)
+    expect(window.setBounds).toHaveBeenCalledWith({ x: 112, y: 195, width: 104, height: 88 })
   })
 
-  // Retina·트랙패드에서 screenX가 소수로 오는데 setPosition은 정수만 받는다.
+  // Retina·트랙패드에서 screenX가 소수로 오는데 setBounds는 정수만 받는다.
   // 소수를 그대로 넘기면 main 프로세스가 통째로 죽는다(실제로 죽었다).
   it('소수 델타가 들어와도 정수 좌표로 옮긴다', async () => {
     const { window, onHandler } = await register()
 
     onHandler(CHANNEL.moveBy)?.({}, 0.5, -0.5)
 
-    const [x, y] = vi.mocked(window.setPosition).mock.calls[0]
-    expect(Number.isInteger(x)).toBe(true)
-    expect(Number.isInteger(y)).toBe(true)
+    const [bounds] = vi.mocked(window.setBounds).mock.calls[0]
+
+    for (const value of Object.values(bounds)) {
+      expect(Number.isInteger(value)).toBe(true)
+    }
   })
 
   it('숫자가 아닌 델타는 무시한다', async () => {
@@ -270,7 +275,7 @@ describe('registerIpcHandlers', () => {
 
     onHandler(CHANNEL.moveBy)?.({}, Number.NaN, undefined)
 
-    expect(window.setPosition).not.toHaveBeenCalled()
+    expect(window.setBounds).not.toHaveBeenCalled()
   })
 
   it('setClickThrough는 창의 setIgnoreMouseEvents로 이어진다 (pet-window FR-002)', async () => {
