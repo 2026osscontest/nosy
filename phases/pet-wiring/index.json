@@ -1,0 +1,20 @@
+{
+  "project": "nosy",
+  "phase": "pet-wiring",
+  "steps": [
+    {
+      "step": 0,
+      "name": "fix-ipc",
+      "ac": ["lint", "build", "test"],
+      "tests": ["apps/pet/test/fix-ipc.test.ts"],
+      "status": "pending"
+    },
+    {
+      "step": 1,
+      "name": "scheduler",
+      "ac": ["lint", "build", "test"],
+      "tests": ["apps/pet/test/scheduler.test.ts"],
+      "status": "pending"
+    }
+  ]
+}

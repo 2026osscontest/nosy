@@ -36,6 +36,10 @@
       "dir": "fix-engine",
       "status": "completed",
       "completed_at": "2026-08-24T23:02:59+09:00"
+    },
+    {
+      "dir": "pet-wiring",
+      "status": "pending"
     }
   ]
 }
