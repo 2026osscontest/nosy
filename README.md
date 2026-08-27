@@ -20,6 +20,20 @@ Nosy tells you which file, which line, and what to run.
 
 ---
 
+<div align="center">
+<table>
+<tr>
+<td width="50%"><img src="docs/images/panel-before-fix.png" alt="Diagnostic panel showing a score of 70 with five findings"></td>
+<td width="50%"><img src="docs/images/panel-after-fix.png" alt="The same panel at 100 after the fix was applied"></td>
+</tr>
+<tr>
+<td align="center"><sub><b>Before</b> — one error, four warnings. Each points at a file and line.</sub></td>
+<td align="center"><sub><b>After</b> — the fix ran, the original was backed up, and the toggle reverts it.</sub></td>
+</tr>
+</table>
+<sub>Captured against the throwaway environment created by <code>scripts/demo-setup.sh</code>, not a real home directory.</sub>
+</div>
+
 ## Why
 
 Shell configuration rots quietly.

@@ -20,6 +20,20 @@ Nosy는 어느 파일 몇 번째 줄을 무슨 명령으로 고치라고 말합�
 
 ---
 
+<div align="center">
+<table>
+<tr>
+<td width="50%"><img src="docs/images/panel-before-fix.png" alt="70점에 문제 5건이 뜬 진단 패널"></td>
+<td width="50%"><img src="docs/images/panel-after-fix.png" alt="수정을 적용해 100점이 된 같은 패널"></td>
+</tr>
+<tr>
+<td align="center"><sub><b>수정 전</b> — 오류 1건과 경고 4건. 각각 파일과 줄을 짚는다.</sub></td>
+<td align="center"><sub><b>수정 후</b> — 수정이 실행됐고, 원본은 백업됐으며, 토글을 다시 누르면 되돌아간다.</sub></td>
+</tr>
+</table>
+<sub><code>scripts/demo-setup.sh</code>가 만든 격리 환경으로 촬영했다. 실제 홈 디렉터리가 아니다.</sub>
+</div>
+
 ## 왜 만들었나
 
 셸 설정은 조용히 썩습니다.
