@@ -90,6 +90,10 @@ rc 파일 마지막에 있지 않은 초기화 줄 · 설치됐는데 초기화 
 **화면 위에 삽니다.** 투명하고 항상 위에 뜨며 Dock 아이콘이 없습니다. 표정은 점수를 따라갑니다.
 
 <div align="center">
+<img src="docs/images/pet-on-desktop.png" width="620" alt="macOS 바탕화면 위에 떠 있는 Nosy 펫">
+</div>
+
+<div align="center">
 <img src="assets/character/preview/idle_0.png" width="72" alt="idle">
 <img src="assets/character/preview/thinking_0.png" width="72" alt="thinking">
 <img src="assets/character/preview/worried_0.png" width="72" alt="worried">

@@ -92,6 +92,10 @@ immediately instead of waiting for you to ask.
 follows the score.
 
 <div align="center">
+<img src="docs/images/pet-on-desktop.png" width="620" alt="The Nosy pet sitting on a macOS desktop">
+</div>
+
+<div align="center">
 <img src="assets/character/preview/idle_0.png" width="72" alt="idle">
 <img src="assets/character/preview/thinking_0.png" width="72" alt="thinking">
 <img src="assets/character/preview/worried_0.png" width="72" alt="worried">
