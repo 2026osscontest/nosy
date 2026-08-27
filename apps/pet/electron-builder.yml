@@ -1,6 +1,6 @@
 appId: kr.osscontest.nosy
 productName: Nosy
-copyright: Copyright © 2026 Nosy contributors
+copyright: Copyright © 2026 Nosy
 
 directories:
   buildResources: build
