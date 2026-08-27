@@ -1,0 +1,43 @@
+appId: kr.osscontest.nosy
+productName: Nosy
+copyright: Copyright © 2026 Nosy contributors
+
+directories:
+  buildResources: build
+  output: dist
+
+# @nosy/core는 번들에 인라인되므로(electron.vite.config.ts 참고) node_modules를
+# 통째로 넣을 필요가 없다. electron-vite 산출물과 package.json만 담는다.
+files:
+  - out
+  - package.json
+
+# 네이티브 모듈이 없다. pnpm 심볼릭 링크 위에서 rebuild를 돌리면 실패만 한다.
+npmRebuild: false
+
+mac:
+  category: public.app-category.developer-tools
+  icon: build/icon.png
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+  # Apple Developer 인증서가 없다. arm64 macOS는 서명이 아예 없는 바이너리를
+  # 실행조차 하지 않으므로 ad-hoc 서명("-")을 남긴다. 공증(notarization)은 아니라
+  # 사용자는 첫 실행 시 Gatekeeper 격리를 직접 벗겨야 한다(README 설치 절 참고).
+  identity: '-'
+  # 펫 창은 화면 어디에나 뜨고 로그인 시 자동 시작한다. 접근성 권한은 쓰지 않는다.
+  extendInfo:
+    LSUIElement: true # Dock 아이콘 없이 메뉴바에만 상주 (ADR-011)
+
+dmg:
+  title: ${productName}
+  contents:
+    - x: 130
+      y: 220
+      type: file
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications

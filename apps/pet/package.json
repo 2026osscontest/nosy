@@ -1,12 +1,21 @@
 {
   "name": "@nosy/pet",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
+  "description": "A desktop pet that diagnoses your development environment",
+  "author": "Nosy contributors",
+  "homepage": "https://github.com/2026osscontest/nosy",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/2026osscontest/nosy.git"
+  },
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "icon": "node ../../assets/icon/generator/generate.mjs",
+    "dist": "electron-vite build && electron-builder --mac",
     "lint": "eslint .",
     "test": "vitest run"
   },
@@ -20,6 +29,7 @@
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.0.5",
     "electron": "^43.4.0",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "vite": "^8.2.1"
   }
