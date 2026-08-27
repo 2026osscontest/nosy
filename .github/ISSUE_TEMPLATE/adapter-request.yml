@@ -1,0 +1,73 @@
+name: New adapter
+description: Propose a tool Nosy should be able to diagnose
+title: "[Adapter] "
+labels: ["adapter", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Adapters are the main extension point. If you're planning to write it yourself, the
+        walkthrough is in [CONTRIBUTING.md](https://github.com/2026osscontest/nosy/blob/master/CONTRIBUTING.md#writing-a-new-adapter) —
+        opening this issue first lets us agree on scope before you spend an evening on it.
+
+        `git` and `docker` already have specs in `docs/specs/` awaiting implementation.
+
+        한국어로 작성하셔도 좋습니다.
+
+  - type: input
+    id: tool
+    attributes:
+      label: Which tool?
+      placeholder: "asdf, rbenv, Docker, direnv, …"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problems
+    attributes:
+      label: What goes wrong with it in practice?
+      description: |
+        The concrete failure modes an adapter should catch. Nosy's value is pointing at a cause,
+        so the more specific these are, the better.
+      placeholder: |
+        - The plugin is installed but the shim directory isn't on PATH
+        - .tool-versions asks for a version that isn't installed
+        - Two version managers both claim the same runtime
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Where would the evidence come from?
+      description: |
+        Every finding needs either a file and line number, or a command to run.
+        Which config files would this adapter read? Does the tool have its own
+        diagnostic command to wrap?
+      placeholder: |
+        Reads ~/.tool-versions and ~/.asdfrc.
+        `asdf doctor` doesn't exist, but `asdf current` reports the active versions.
+    validations:
+      required: true
+
+  - type: textarea
+    id: fixes
+    attributes:
+      label: What would fixing it look like?
+      description: |
+        A shell command, or an edit to a specific line. Remember that destructive
+        operations — deleting files or packages, resetting global config — are out
+        of scope for fixes by design.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: contributing
+    attributes:
+      label: Are you planning to implement it?
+      options:
+        - "Yes, I'd like to write it"
+        - "Maybe, with some guidance"
+        - "No, just suggesting"
+    validations:
+      required: true

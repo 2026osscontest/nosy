@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/2026osscontest/nosy/security/advisories/new
+    about: Report privately instead of opening a public issue. Nosy edits files in your home directory, so please don't disclose these in the open.
+  - name: Installation trouble
+    url: https://github.com/2026osscontest/nosy#install
+    about: "\"Nosy is damaged and can't be opened\" or a refused cask? The README covers both — they're expected steps, not bugs."

@@ -1,0 +1,94 @@
+name: Bug report
+description: Something crashed, looked wrong, or didn't work
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If Nosy flagged something that was actually fine, please use the
+        **False positive** template instead — it asks for different details.
+
+        **Please redact secrets** from anything you paste.
+
+        한국어로 작성하셔도 좋습니다.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      placeholder: The detail panel opened but stayed empty after running diagnostics.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Click the pet
+        2. Open the detail panel
+        3. …
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Nosy version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: |
+        Paste the output of:
+        ```
+        sw_vers -productVersion
+        uname -m
+        echo $SHELL
+        ```
+      placeholder: |
+        macOS: 15.2
+        Architecture: arm64
+        Shell: /bin/zsh
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: How did you install it?
+      options:
+        - Homebrew (brew install --cask nosy)
+        - Downloaded the .dmg
+        - Built from source
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: launched
+    attributes:
+      label: How did you launch it?
+      description: A Finder-launched app inherits a different PATH than a terminal one, which changes what diagnostics can see.
+      options:
+        - label: From Finder, Launchpad, or at login
+        - label: From a terminal (`pnpm dev`)
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots, screen recordings, or console output are all welcome.
+    validations:
+      required: false

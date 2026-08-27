@@ -1,0 +1,112 @@
+name: False positive
+description: Nosy flagged something that was actually fine
+title: "[False positive] "
+labels: ["false-positive"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you — this is the most valuable report you can file. A diagnostic tool that cries wolf
+        is worse than no tool at all.
+
+        **Please redact secrets before pasting.** Shell rc files accumulate API keys, tokens, and
+        internal hostnames. Replace them with `REDACTED`. We only need the lines related to the
+        finding, not your whole configuration.
+
+        한국어로 작성하셔도 좋습니다.
+
+  - type: input
+    id: finding-title
+    attributes:
+      label: What did Nosy say?
+      description: The finding title as shown in the panel.
+      placeholder: "대상이 존재하지 않는 alias가 있습니다"
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: What did it point at?
+      description: The file and line number shown as evidence, if any.
+      placeholder: "~/.zshrc:117"
+    validations:
+      required: false
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Why was it actually fine?
+      description: Tell us what Nosy got wrong.
+      placeholder: |
+        The alias points at `claude`, which is installed at ~/.local/bin/claude
+        and works normally in my shell.
+    validations:
+      required: true
+
+  - type: textarea
+    id: lines
+    attributes:
+      label: Relevant lines
+      description: The lines from your rc file that the finding involves. Secrets redacted.
+      render: shell
+      placeholder: |
+        alias cc="claude"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: adapter
+    attributes:
+      label: Which adapter?
+      description: Shown in the panel next to the finding.
+      options:
+        - shell-rc
+        - version-manager
+        - homebrew
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Nosy version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: |
+        Paste the output of these commands:
+        ```
+        sw_vers -productVersion
+        echo $SHELL
+        ```
+        And mention any version managers you use (nvm, pyenv, asdf, …).
+      placeholder: |
+        macOS: 15.2
+        Shell: /bin/zsh
+        Version managers: nvm, pyenv
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: launched
+    attributes:
+      label: How did you launch Nosy?
+      description: This matters — a Finder-launched app inherits a different PATH than a terminal one.
+      options:
+        - label: From Finder, Launchpad, or at login
+        - label: From a terminal (`pnpm dev`)
+
+  - type: checkboxes
+    id: redacted
+    attributes:
+      label: Confirmation
+      options:
+        - label: I removed secrets, tokens, and internal hostnames from anything I pasted above.
+          required: true
