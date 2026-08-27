@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    # 어댑터도 테스트도 macOS를 전제한다(process.platform, /opt/homebrew 경로).
+    # 대상 플랫폼에서 그대로 돌리는 편이 CI의 의미에 맞는다.
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # apps/pet의 workspace link는 packages/core의 dist/를 가리킨다.
+      # git checkout에는 dist/가 없으므로 core를 먼저 빌드해야 pet이 돈다.
+      - name: Build @nosy/core
+        run: pnpm --filter @nosy/core build
+
+      - run: pnpm lint
+
+      - run: pnpm test
+
+      - run: pnpm build

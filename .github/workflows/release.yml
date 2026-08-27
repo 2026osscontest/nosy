@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  release:
+    # arm64 러너 한 대에서 두 아키텍처를 모두 만든다. Intel 러너를 따로 쓰면
+    # 두 job이 같은 릴리스에 동시에 올리며 경쟁하고, GitHub의 Intel macOS 러너는
+    # 은퇴 수순이기도 하다. arm64 → x64 크로스 빌드는 검증했다.
+    runs-on: macos-latest
+
+    permissions:
+      contents: write # 릴리스 생성과 자산 업로드에 필요
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # 태그와 package.json이 어긋나면 엉뚱한 버전의 dmg가 올라간다.
+      # electron-builder는 태그가 아니라 package.json의 version을 파일명에 쓴다.
+      - name: Verify tag matches version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG=$(node -p "require('./apps/pet/package.json').version")
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::tag v$TAG does not match apps/pet/package.json version $PKG"
+            exit 1
+          fi
+          echo "version $PKG"
+
+      - name: Build @nosy/core
+        run: pnpm --filter @nosy/core build
+
+      - name: Build renderer and main
+        run: pnpm --filter @nosy/pet build
+
+      # --publish always는 electron-builder.yml의 publish 설정을 따라
+      # GitHub 릴리스를 만들고 dmg를 올린다. 초안으로 올라가므로
+      # 내용을 확인한 뒤 사람이 직접 publish한다.
+      - name: Package and publish dmg
+        run: pnpm --filter @nosy/pet exec electron-builder --mac dmg --arm64 --x64 --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dmg
+          path: apps/pet/dist/*.dmg
+          retention-days: 7

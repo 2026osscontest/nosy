@@ -6,6 +6,14 @@ directories:
   buildResources: build
   output: dist
 
+# .github/workflows/release.yml이 --publish always로 이 설정을 쓴다.
+# releaseType이 draft라 자산이 다 올라간 뒤 사람이 확인하고 공개한다.
+publish:
+  provider: github
+  owner: 2026osscontest
+  repo: nosy
+  releaseType: draft
+
 # @nosy/core는 번들에 인라인되므로(electron.vite.config.ts 참고) node_modules를
 # 통째로 넣을 필요가 없다. electron-vite 산출물과 package.json만 담는다.
 files:
@@ -18,6 +26,9 @@ npmRebuild: false
 mac:
   category: public.app-category.developer-tools
   icon: build/icon.png
+  # 기본값은 x64에서 arch를 빼 `Nosy-0.1.0.dmg`가 된다. Homebrew cask가
+  # on_arm/on_intel로 분기하므로 파일명에 아키텍처를 항상 남긴다.
+  artifactName: ${productName}-${version}-${arch}.${ext}
   target:
     - target: dmg
       arch:

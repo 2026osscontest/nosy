@@ -1,6 +1,7 @@
 {
   "name": "nosy",
   "private": true,
+  "packageManager": "pnpm@11.22.0",
   "type": "module",
   "scripts": {
     "lint": "pnpm -r run lint",
