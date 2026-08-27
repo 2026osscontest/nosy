@@ -49,6 +49,12 @@ jobs:
       - name: Package dmg
         run: pnpm --filter @nosy/pet exec electron-builder --mac dmg --arm64 --x64 --publish never
 
+      # SBOM은 버전마다 내용이 달라지므로 릴리스에 붙인다. 리포에는 두지 않는다.
+      - name: Generate SBOM
+        run: |
+          node scripts/generate-sbom.mjs
+          cp sbom.json "apps/pet/dist/nosy-${GITHUB_REF_NAME}-sbom.cdx.json"
+
       # electron-builder의 --publish에 맡기지 않는 이유: draft 릴리스는 태그로
       # 조회되지 않아 아키텍처마다 릴리스를 새로 만든다(실제로 draft가 2개 생겼다).
       # 자동 업데이트를 쓰지 않으므로 latest-mac.yml·blockmap도 필요 없다.
@@ -59,7 +65,8 @@ jobs:
             --draft \
             --title "$GITHUB_REF_NAME" \
             --generate-notes \
-            apps/pet/dist/*.dmg
+            apps/pet/dist/*.dmg \
+            apps/pet/dist/*-sbom.cdx.json
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

@@ -224,8 +224,8 @@ writing a new adapter.
 [MIT](LICENSE).
 
 Every dependency has been audited — no GPL, AGPL, or LGPL anywhere in the tree. See
-[`docs/LICENSE-AUDIT.md`](docs/LICENSE-AUDIT.md) for the breakdown and
-[`sbom.json`](sbom.json) for the CycloneDX SBOM.
+[`docs/LICENSE-AUDIT.md`](docs/LICENSE-AUDIT.md) for the breakdown. A CycloneDX SBOM is attached to
+every [release](https://github.com/2026osscontest/nosy/releases/latest).
 
 ### Acknowledgements
 

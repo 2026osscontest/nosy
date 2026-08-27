@@ -215,7 +215,8 @@ Nosy는 여러분의 셸 설정을 고칩니다. 그렇다면 한계를 명시�
 [MIT](LICENSE).
 
 모든 의존성의 라이선스를 검토했다 — 트리 전체에 GPL·AGPL·LGPL이 없다. 상세 내역은
-[`docs/LICENSE-AUDIT.md`](docs/LICENSE-AUDIT.md), CycloneDX SBOM은 [`sbom.json`](sbom.json)에 있다.
+[`docs/LICENSE-AUDIT.md`](docs/LICENSE-AUDIT.md)에 있고, CycloneDX SBOM은
+[릴리스](https://github.com/2026osscontest/nosy/releases/latest)마다 자산으로 첨부한다.
 
 ### 감사의 말
 
