@@ -2,6 +2,9 @@ packages:
   - packages/*
   - apps/*
 allowBuilds:
+  # Electron 바이너리를 내려받는 postinstall. 승인하지 않으면 dist/가 비어
+  # `electron-vite dev`가 "Electron uninstall"로 죽는다.
+  electron: true
   # Windows 인스톨러 생성기. macOS만 배포하므로 빌드 스크립트가 필요 없다.
   electron-winstaller: false
   esbuild: true
